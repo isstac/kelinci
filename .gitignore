@@ -1,0 +1,9 @@
+/fuzzerside/in_dir/
+/fuzzerside/out_dir/
+/fuzzerside/interface
+/instrumentor/.classpath
+/instrumentor/.project
+/instrumentor/bin/
+/instrumentor/.gradle
+/instrumentor/build
+instrumentor/.settings/

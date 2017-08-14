@@ -1,0 +1,29 @@
+apply plugin: 'java'
+
+def version = '0.1'
+jar.archiveName = 'kelinci.jar'
+
+repositories {
+    mavenCentral()
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+dependencies {
+    compile 'args4j:args4j:2.32'    
+    compile group: 'org.ow2.asm', name: 'asm', version: '5.2'
+    compile group: 'commons-io', name: 'commons-io', version: '2.4'
+}
+
+jar {
+
+    manifest {
+        attributes 'Main-Class': "edu.cmu.sv.kelinci.instrumentor.Instrumentor",
+                   'Class-Path': '.',
+                   'Implementation-Title': 'Kelinci',
+                   'Implementation-Version': "$version"
+    }
+
+    from configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+}
