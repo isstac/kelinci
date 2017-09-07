@@ -32,14 +32,19 @@
 
 #define MAX_TRIES 40
 
+#define MAX_URI_LENGTH 100
+
 uint8_t* trace_bits;
 int prev_location = 0;
 
 /* Stdout is piped to null when running inside AFL, so we have an option to write output to a file */
 FILE* logfile;
 
+/* Running inside AFL or standalone */
+int in_afl = 0;
+
 #define OUTPUT_STDOUT
-//#define OUTPUT_FILE
+#define OUTPUT_FILE
 
 void LOG(const char* format, ...) {
   va_list args;
@@ -54,7 +59,8 @@ void LOG(const char* format, ...) {
   va_end(args);
 }
 
-#define DIE(...) LOG(__VA_ARGS__); shmdt(trace_bits); fclose(logfile); exit(1);
+#define DIE(...) { LOG(__VA_ARGS__); if(!in_afl) shmdt(trace_bits); if(logfile != NULL) fclose(logfile); exit(1); }
+#define LOG_AND_CLOSE(...) { LOG(__VA_ARGS__); if(logfile != NULL) fclose(logfile); }
 
 #ifdef VERBOSE
   #define LOGIFVERBOSE(...) LOG(__VA_ARGS__);
@@ -65,8 +71,8 @@ void LOG(const char* format, ...) {
 int tcp_socket;
 
 /* Set up the TCP connection */
-void setup_tcp_connection() {
-  const char* hostname = 0;
+void setup_tcp_connection(const char* hostname) {
+  LOG("Trying to connect to server %s...\n", hostname);
   const char* port = "7007";
   struct addrinfo hints;
   memset(&hints, 0, sizeof(hints));
@@ -95,12 +101,62 @@ void setup_tcp_connection() {
 int main(int argc, char** argv) {
 
   /* Stdout is piped to null, so write output to a file */
-  logfile = fopen(LOGFILE, "w");
+#ifdef OUTPUT_FILE
+  logfile = fopen(LOGFILE, "wb");
+  if (logfile == NULL) {
+    DIE("Error opening log file for writing\n");
+  }
+#endif
+
+  /* Parse input */
+  if (argc != 2 && !(argc == 4 && argv[1][0] == '-' && argv[1][1] == 's')) {
+    DIE("Usage: interface [-s <server-list-file>] <filename>\n");
+  }
+  const char* filename;
+  int num_servers;
+  char** servers;
+  if (argc == 4) {
+    filename = argv[3];
+
+    // read servers file
+    FILE *sfile = fopen(argv[2], "r");
+    
+    //count lines first
+    int lines = 0;
+    char buf[MAX_URI_LENGTH];
+    while (fgets(buf, MAX_URI_LENGTH, sfile) != NULL)
+      lines++;
+    rewind(sfile);
+
+    //now load them
+    servers = (char**) malloc(lines * sizeof(char *));
+    for (int line = 0; line < lines; line++) {
+      servers[line] = malloc(MAX_URI_LENGTH * sizeof(char));
+      fgets(servers[line], MAX_URI_LENGTH, sfile);
+      servers[line][strlen(servers[line])-1] = '\0'; // strip newline char
+    }
+
+    num_servers = lines;
+
+    fclose(sfile);
+  } else {
+    filename = argv[1];
+    num_servers = 1;
+    servers = (char**) malloc(sizeof(char *));
+    servers[0] = "localhost";
+  }
+  LOG("input file = %s\n", filename);
+
+  // go round robin over list of servers
+  int server_to_use = 0;
 
   /* Preamble instrumentation */
   char* shmname = getenv(SHM_ENV_VAR);
   int status;
   if (shmname) {
+
+    /* Running in AFL */
+    in_afl = 1;
 	  
     /* Set up shared memory region */
     LOG("SHM_ID: %s\n", shmname);
@@ -143,6 +199,11 @@ int main(int argc, char** argv) {
 
       LOGIFVERBOSE("Status %d \n", status);
       write(199, &status, 4);
+
+      // round robin use of servers
+      server_to_use++;
+      if (server_to_use >= num_servers)
+	      server_to_use = 0;
     }
 
     resume:
@@ -159,14 +220,6 @@ int main(int argc, char** argv) {
   }
 
   /* Done with initialization, now let's start the wrapper! */
-
-  /* Parse input */
-  if (argc != 2) {
-    DIE("Usage: interface <filename>\n");
-  }
-  const char* filename = argv[1];
-  LOG("input file = %s\n", filename);
-
   /* send contents of file over TCP */
   int try = 0;
   size_t nread;
@@ -180,7 +233,7 @@ int main(int argc, char** argv) {
     if(try > 0)
       usleep(100000);
 
-    setup_tcp_connection();
+    setup_tcp_connection(servers[server_to_use]);
     file = fopen(filename, "r");
     if (file) {
       // get file size and send
@@ -262,11 +315,10 @@ cont: close(tcp_socket);
     
   LOG("Received results. Terminating.\n\n");
 
-  shmdt(trace_bits);
-
-
-  /* Close output file */
-  fclose(logfile);
+  /* Disconnect shared memory */
+  if (in_afl) {
+    shmdt(trace_bits);
+  }
 
   /* Terminate with CRASH signal if Java program terminated abnormally */
   if (status == STATUS_CRASH) {
@@ -288,7 +340,8 @@ cont: close(tcp_socket);
     }
   }
 
-  LOG("Terminating normally.\n");
+  LOG_AND_CLOSE("Terminating normally.\n");
+
   return 0;
 }
 
