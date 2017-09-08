@@ -289,19 +289,6 @@ int main(int argc, char** argv) {
       }
     }
 
-  /* Receive runtime */
-/*  long runtime;
-  nread = read(tcp_socket, &runtime, 8);
-  if (nread != 8) {
-	  DIE("Failed to read runtime\n");
-  }
-  LOG("Runtime: %ld\n", runtime);
-*/
-
-
-    /* Send confirmation of receipt */
-    //write(tcp_socket, &conf, 1);
-
     /* Close socket */
 cont: close(tcp_socket);
 
