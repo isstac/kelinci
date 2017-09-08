@@ -232,25 +232,17 @@ class Kelinci {
 	public static void main(String args[]) {
 		
 		/**
-		 * Parse command line parameters: load the main class, 
-		 * grab -threads option and store command-line parameters for fuzzing runs.
+		 * Parse command line parameters: load the main class
+		 * and store command-line parameters for fuzzing runs.
 		 */
 		if (args.length < 1) {
 			System.err.println("Usage: java edu.cmu.sv.kelinci.Kelinci [-threads N] package.ExampleMain <args>");
 			return;
 		}
+
+		targetArgs = Arrays.copyOfRange(args, 1, args.length);
 		
-		int numThreads = -1; // default
-		int offset = 0;
-		if (args.length > 1 && args[0].equals("-threads")) {
-			numThreads = Integer.parseInt(args[1]);
-			targetArgs = Arrays.copyOfRange(args, 3, args.length);
-			offset += 2;
-		} else {
-			targetArgs = Arrays.copyOfRange(args, 1, args.length);
-		}
-		
-		String mainClass = args[offset];
+		String mainClass = args[0];
 		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 		try {
 			Class<?> target = classloader.loadClass(mainClass);
@@ -265,12 +257,7 @@ class Kelinci {
 			System.err.println("Main method in class not accessible: " + mainClass);
 			return;
 		}
-		
-		
-		/**
-		 * If we need to write a JAR, put instrumented classes
-		 */
-		
+			
 		 /**
 		  * Start the server thread
 		  */
@@ -287,17 +274,12 @@ class Kelinci {
          * The number of threads can be specified by the user with the -threads option.
          * By default, the number of threads is equal to the number of available processors - 1.
          */
-        if (numThreads <= 0)
-        	numThreads = Runtime.getRuntime().availableProcessors() - 1; // -1 for server thread
-        Thread fuzzerRuns[] = new Thread[numThreads];
-        for (int thread = 0; thread < numThreads; thread++) {
-        	fuzzerRuns[thread] = new Thread(new Runnable() {
-        		@Override
-        		public void run() {
-        			doFuzzerRuns();
-        		}
-        	});
-        	fuzzerRuns[thread].start();
-        }
+        Thread fuzzerRuns = new Thread(new Runnable() {
+        	@Override
+        	public void run() {
+        		doFuzzerRuns();
+        	}
+        });
+        fuzzerRuns.start();
 	}
 }
