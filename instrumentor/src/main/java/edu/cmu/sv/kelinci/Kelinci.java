@@ -14,7 +14,6 @@ import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -22,11 +21,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * TODO the socket breaks remarkably often, it seems there might be a bug...
- * TODO allow connecting AFL to a set of servers, not just localhost
  * TODO add "local" mode that prevents sending input files
- * TODO replace System.exit() with RuntimeException
- * TODO try with multiple AFL instances in parallel
+ * TODO Option to replace System.exit() with RuntimeException?
+ * TODO put in the cloud
  * 
  * @author rodykers
  *
@@ -175,17 +172,15 @@ class Kelinci {
     						input[read++] = 0;
     					}
     				}
-//    				System.out.println("Received input " + Arrays.toString(input));
 
     				// run app with input
     				ExecutorService executor = Executors.newSingleThreadExecutor();
     				Future<Long> future = executor.submit(new ApplicationCall(input));
 
     				byte result = STATUS_CRASH;
-    				long runtime = -1L;
     				try {
     					System.out.println("Started..");
-    					runtime = future.get(APPLICATION_TIMEOUT, TimeUnit.SECONDS);
+    					future.get(APPLICATION_TIMEOUT, TimeUnit.SECONDS);
     					result = STATUS_SUCCESS;
     					System.out.println("Result: " + result);
     					System.out.println("Finished!");
@@ -211,20 +206,6 @@ class Kelinci {
 
     				// send back "shared memory" over TCP
     				os.write(Mem.mem, 0, Mem.mem.length);
-
-    				// send back runtime
-    				/*
-    				System.out.println("Sending runtime: " + runtime);
-    				for (int i = 0; i < 8; i++) {
-    					int b = ((byte) (runtime >> i*8)) & 255;
-    					System.out.println("Writing " + b);
-    					os.write(b);
-    				}
-    				 */
-    				
-    				// wait for confirmation
-//    				if (is.read() != STATUS_DONE)
-//    					System.err.println("Unknown communication error.");
 
     				// close connection
     				os.flush();

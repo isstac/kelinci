@@ -7,6 +7,8 @@ import java.io.IOException;
 import edu.cmu.sv.kelinci.Mem;
 
 /**
+ * Just a program with some branches, so lots of different "behaviors".
+ * 
  * @author Rody Kersten
  */
 public class AFLFeedback {
