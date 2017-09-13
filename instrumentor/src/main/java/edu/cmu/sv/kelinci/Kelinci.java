@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -30,7 +31,7 @@ import java.util.concurrent.TimeoutException;
  */
 class Kelinci {
 
-	public static final int PORT = 7007;
+	public static final int DEFAULT_PORT = 7007;
     private static final int maxQueue = 10;
     private static Queue<FuzzRequest> requestQueue = new ConcurrentLinkedQueue<>();
 
@@ -58,15 +59,15 @@ class Kelinci {
      * Method to run in a thread to accept requests coming
      * in over TCP and put them in a queue.
      */
-    private static void runServer() {
-    	
-    	try (ServerSocket ss = new ServerSocket(PORT)) {
-    		System.out.println("Server listening on port " + PORT);
+    private static void runServer(int port) {
+
+    	try (ServerSocket ss = new ServerSocket(port)) {
+    		System.out.println("Server listening on port " + port);
 
     		while (true) {
     			Socket s = ss.accept();
     			System.out.println("Connection established.");
-    			
+
     			boolean status = false;
     			if (requestQueue.size() < maxQueue) {
     				status = requestQueue.offer(new FuzzRequest(s));
@@ -76,20 +77,23 @@ class Kelinci {
     				System.out.println("Queue full.");
     				OutputStream os = s.getOutputStream();
     				os.write(STATUS_QUEUE_FULL);
-        			os.flush();
+    				os.flush();
     				s.shutdownOutput();
-                    s.shutdownInput();
-                    s.close();
-        			System.out.println("Connection closed.");
+    				s.shutdownInput();
+    				s.close();
+    				System.out.println("Connection closed.");
     			}
     		}
-    		} catch (Exception e) {
-    			System.out.println("Exception in request server");
-    			e.printStackTrace();
-            	System.exit(1);
-    		}
+    	} catch (BindException be) {
+    		System.out.println("Unable to bind to port " + port);
+    		System.exit(1);
+    	} catch (Exception e) {
+    		System.out.println("Exception in request server");
+    		e.printStackTrace();
+    		System.exit(1);
+    	}
     }
-    
+
     /**
      * Writes the provided input to a file, then calls main()
      * Replaces @@ by the tmp file name.
@@ -232,17 +236,26 @@ class Kelinci {
 	public static void main(String args[]) {
 		
 		/**
-		 * Parse command line parameters: load the main class
-		 * and store command-line parameters for fuzzing runs.
+		 * Parse command line parameters: load the main class,
+		 * grab -port option and store command-line parameters for fuzzing runs.
 		 */
 		if (args.length < 1) {
-			System.err.println("Usage: java edu.cmu.sv.kelinci.Kelinci [-threads N] package.ExampleMain <args>");
+			System.err.println("Usage: java edu.cmu.sv.kelinci.Kelinci [-port N] package.ExampleMain <args>");
 			return;
 		}
-
-		targetArgs = Arrays.copyOfRange(args, 1, args.length);
 		
-		String mainClass = args[0];
+		final int port; // default
+		int offset = 0;
+		if (args.length > 1 && args[0].equals("-port")) {
+			port = Integer.parseInt(args[1]);
+			targetArgs = Arrays.copyOfRange(args, 3, args.length);
+			offset += 2;
+		} else {
+			port = DEFAULT_PORT;
+			targetArgs = Arrays.copyOfRange(args, 1, args.length);			
+		}
+		String mainClass = args[offset];
+
 		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 		try {
 			Class<?> target = classloader.loadClass(mainClass);
@@ -264,7 +277,7 @@ class Kelinci {
         Thread server = new Thread(new Runnable() {
             @Override
             public void run() {
-                runServer();
+                runServer(port);
             }
         });
         server.start();

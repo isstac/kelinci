@@ -33,6 +33,8 @@
 #define MAX_TRIES 40
 
 #define MAX_URI_LENGTH 100
+#define DEFAULT_SERVER "localhost"
+#define DEFAULT_PORT "7007"
 
 uint8_t* trace_bits;
 int prev_location = 0;
@@ -71,9 +73,8 @@ void LOG(const char* format, ...) {
 int tcp_socket;
 
 /* Set up the TCP connection */
-void setup_tcp_connection(const char* hostname) {
-  LOG("Trying to connect to server %s...\n", hostname);
-  const char* port = "7007";
+void setup_tcp_connection(const char* hostname, const char* port) {
+  LOG("Trying to connect to server %s at port %s...\n", hostname, port);
   struct addrinfo hints;
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_UNSPEC;
@@ -115,6 +116,7 @@ int main(int argc, char** argv) {
   const char* filename;
   int num_servers;
   char** servers;
+  char** ports;
   if (argc == 4) {
     filename = argv[3];
 
@@ -130,12 +132,21 @@ int main(int argc, char** argv) {
 
     //now load them
     servers = (char**) malloc(lines * sizeof(char *));
+    ports = (char**) malloc(lines * sizeof(char *));
     for (int line = 0; line < lines; line++) {
-      servers[line] = malloc(MAX_URI_LENGTH * sizeof(char));
+      servers[line] = malloc(MAX_URI_LENGTH+6 * sizeof(char)); // +6 for port
       fgets(servers[line], MAX_URI_LENGTH, sfile);
       servers[line][strlen(servers[line])-1] = '\0'; // strip newline char
-    }
 
+      // if has port, store it
+      char* colon_pos = strchr(servers[line], ':');
+      if (colon_pos) {
+	ports[line] = colon_pos+1;
+	*colon_pos = '\0';
+      } else {
+	ports[line] = DEFAULT_PORT;
+      }
+    }
     num_servers = lines;
 
     fclose(sfile);
@@ -143,7 +154,9 @@ int main(int argc, char** argv) {
     filename = argv[1];
     num_servers = 1;
     servers = (char**) malloc(sizeof(char *));
-    servers[0] = "localhost";
+    ports = (char**) malloc(sizeof(char *));
+    servers[0] = DEFAULT_SERVER;
+    ports[0] = DEFAULT_PORT;
   }
   LOG("input file = %s\n", filename);
 
@@ -233,7 +246,7 @@ int main(int argc, char** argv) {
     if(try > 0)
       usleep(100000);
 
-    setup_tcp_connection(servers[server_to_use]);
+    setup_tcp_connection(servers[server_to_use], ports[server_to_use]);
     file = fopen(filename, "r");
     if (file) {
       // get file size and send
