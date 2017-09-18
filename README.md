@@ -2,7 +2,9 @@
 
 Interface to run AFL on Java programs.
 
-Kelinci means rabbit in Indonesian (the language spoken on Java).
+Kelinci means rabbit in Indonesian (the language spoken on Java). 
+
+This README assumes that AFL has been previously installed. For information on how to install and use AFL, please see <http://lcamtuf.coredump.cx/afl/>. Kelinci has been tested successfully with AFL versions 2.44 and newer. The README explains how to use the tool. For technical background, please see the CCS'17 paper in the 'docs' directory. 
 
 ### Set up ###
 
