@@ -163,46 +163,53 @@ class Kelinci {
 					int filesize = is.read() | is.read() << 8 | is.read() << 16 | is.read() << 24;
 					System.out.println("File size = " + filesize);
 
-					// read the input file
-					byte input[] = new byte[filesize];
-					int read = 0;
-					while (read < filesize) {			
-						if (is.available() > 0) {
-							input[read++] = (byte) is.read();
-						} else {
-							System.err.println("No input available from stream, strangely");
-							System.err.println("Appending a 0");
-							input[read++] = 0;
-						}
-					}
+					if (filesize < 0) {
+						System.err.println("Failed to read file size");
+						result = STATUS_COMM_ERROR;
+					} else {
 
-					// run app with input
-					ExecutorService executor = Executors.newSingleThreadExecutor();
-					Future<Long> future = executor.submit(new ApplicationCall(input));
-
-					byte result = STATUS_CRASH;
-					try {
-						System.out.println("Started..");
-						future.get(APPLICATION_TIMEOUT, TimeUnit.SECONDS);
-						result = STATUS_SUCCESS;
-						System.out.println("Result: " + result);
-						System.out.println("Finished!");
-					} catch (TimeoutException te) {
-						future.cancel(true);
-						System.out.println("Time-out!");
-						result = STATUS_TIMEOUT;
-					} catch (Exception e) {
-						future.cancel(true);
-						if (e.getCause() instanceof RuntimeException) {
-							System.out.println("RuntimeException thrown!");
-						} else if (e.getCause() instanceof Error) {
-							System.out.println("Error thrown!");
-						} else {
-							System.out.println("Uncaught throwable!");
+						// read the input file
+						byte input[] = new byte[filesize];
+						int read = 0;
+						while (read < filesize) {			
+							if (is.available() > 0) {
+								input[read++] = (byte) is.read();
+							} else {
+								System.err.println("No input available from stream, strangely");
+								System.err.println("Appending a 0");
+								input[read++] = 0;
+							}
 						}
-						e.printStackTrace();
+
+						// run app with input
+						ExecutorService executor = Executors.newSingleThreadExecutor();
+						Future<Long> future = executor.submit(new ApplicationCall(input));
+
+						byte result = STATUS_CRASH;
+						try {
+							System.out.println("Started..");
+							future.get(APPLICATION_TIMEOUT, TimeUnit.SECONDS);
+							result = STATUS_SUCCESS;
+							System.out.println("Result: " + result);
+							System.out.println("Finished!");
+						} catch (TimeoutException te) {
+							future.cancel(true);
+							System.out.println("Time-out!");
+							result = STATUS_TIMEOUT;
+						} catch (Exception e) {
+							future.cancel(true);
+							if (e.getCause() instanceof RuntimeException) {
+								System.out.println("RuntimeException thrown!");
+							} else if (e.getCause() instanceof Error) {
+								System.out.println("Error thrown!");
+							} else {
+								System.out.println("Uncaught throwable!");
+							}
+							e.printStackTrace();
+						}
+						executor.shutdownNow();
+
 					}
-					executor.shutdownNow();
 
 					// send back status
 					os.write(result);
