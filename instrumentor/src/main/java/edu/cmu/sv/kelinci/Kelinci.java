@@ -159,6 +159,8 @@ class Kelinci {
 					InputStream is = request.clientSocket.getInputStream();
 					OutputStream os = request.clientSocket.getOutputStream();
 
+					byte result = STATUS_CRASH;
+
 					// read the size of the input file (integer)
 					int filesize = is.read() | is.read() << 8 | is.read() << 16 | is.read() << 24;
 					System.out.println("File size = " + filesize);
@@ -185,7 +187,6 @@ class Kelinci {
 						ExecutorService executor = Executors.newSingleThreadExecutor();
 						Future<Long> future = executor.submit(new ApplicationCall(input));
 
-						byte result = STATUS_CRASH;
 						try {
 							System.out.println("Started..");
 							future.get(APPLICATION_TIMEOUT, TimeUnit.SECONDS);
