@@ -298,6 +298,21 @@ class Kelinci {
 		final int port_final = port;
 		
 		/**
+		 * Check if at least one of the target parameters is @@
+		 */
+		boolean present = false;
+		for (int i = 0; i < targetArgs.length; i++) {
+			if (targetArgs[i].equals("@@")) {
+				present = true;
+				break;
+			}
+		}
+		if (!present) {
+			System.err.println("Error: none of the target application parameters is @@");
+			System.exit(1);
+		}
+		
+		/**
 		 * Redirect target program output to /dev/null if requested.
 		 */
 		if (verbosity <= 0) {
@@ -358,6 +373,7 @@ class Kelinci {
 	
 	/**
 	 * Stream to /dev/null. Used to redirect output of target program.
+	 * 
 	 * I know something like this is also in Apache Commons IO, but if I include it here, 
 	 * we don't need any libs on the classpath when running the Kelinci server.
 	 * 
