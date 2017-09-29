@@ -12,7 +12,7 @@ import java.nio.file.Paths;
 import org.kohsuke.args4j.Option;
 
 /**
- * Options for Kelinci.
+ * Options for the Kelinci Instrumentor.
  * Currently -i and -o flags to specify input and output, respectively,
  * and -threads to specify the number of runner threads.
  * 

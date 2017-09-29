@@ -1,10 +1,12 @@
 package edu.cmu.sv.kelinci;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.BindException;
@@ -43,6 +45,9 @@ class Kelinci {
 	public static final byte STATUS_DONE = 5;
 
 	public static final int APPLICATION_TIMEOUT = 300; // in seconds
+	
+	public static final int DEFAULT_VERBOSITY = 2;
+	private static int verbosity;
 
 	private static Method targetMain;
 	private static String targetArgs[];
@@ -64,33 +69,38 @@ class Kelinci {
 	private static void runServer(int port) {
 
 		try (ServerSocket ss = new ServerSocket(port)) {
-			System.out.println("Server listening on port " + port);
+			if (verbosity > 1)
+				System.out.println("Server listening on port " + port);
 
 			while (true) {
 				Socket s = ss.accept();
-				System.out.println("Connection established.");
+				if (verbosity > 1)
+					System.out.println("Connection established.");
 
 				boolean status = false;
 				if (requestQueue.size() < maxQueue) {
 					status = requestQueue.offer(new FuzzRequest(s));
-					System.out.println("Request added to queue: " + status);
+					if (verbosity > 1)
+						System.out.println("Request added to queue: " + status);
 				} 
 				if (!status) {
-					System.out.println("Queue full.");
+					if (verbosity > 1)
+						System.out.println("Queue full.");
 					OutputStream os = s.getOutputStream();
 					os.write(STATUS_QUEUE_FULL);
 					os.flush();
 					s.shutdownOutput();
 					s.shutdownInput();
 					s.close();
-					System.out.println("Connection closed.");
+					if (verbosity > 1)
+						System.out.println("Connection closed.");
 				}
 			}
 		} catch (BindException be) {
-			System.out.println("Unable to bind to port " + port);
+			System.err.println("Unable to bind to port " + port);
 			System.exit(1);
 		} catch (Exception e) {
-			System.out.println("Exception in request server");
+			System.err.println("Exception in request server");
 			e.printStackTrace();
 			System.exit(1);
 		}
@@ -149,12 +159,15 @@ class Kelinci {
 	 * Kelinci starts NUM_FUZZER_THREADS of these.
 	 */
 	private static void doFuzzerRuns() {
-		System.out.println("Fuzzer runs handler thread started.");
+		if (verbosity > 1) 
+			System.out.println("Fuzzer runs handler thread started.");
+		
 		while (true) {
 			try {
 				FuzzRequest request = requestQueue.poll();
 				if (request != null) {
-					System.out.println("Handling request 1 of " + (requestQueue.size()+1));
+					if (verbosity > 1)
+						System.out.println("Handling request 1 of " + (requestQueue.size()+1));
 
 					InputStream is = request.clientSocket.getInputStream();
 					OutputStream os = request.clientSocket.getOutputStream();
@@ -163,10 +176,12 @@ class Kelinci {
 
 					// read the size of the input file (integer)
 					int filesize = is.read() | is.read() << 8 | is.read() << 16 | is.read() << 24;
-					System.out.println("File size = " + filesize);
+					if (verbosity > 2)
+						System.out.println("File size = " + filesize);
 
 					if (filesize < 0) {
-						System.err.println("Failed to read file size");
+						if (verbosity > 1)
+							System.err.println("Failed to read file size");
 						result = STATUS_COMM_ERROR;
 					} else {
 
@@ -177,8 +192,10 @@ class Kelinci {
 							if (is.available() > 0) {
 								input[read++] = (byte) is.read();
 							} else {
-								System.err.println("No input available from stream, strangely");
-								System.err.println("Appending a 0");
+								if (verbosity > 1) {
+									System.err.println("No input available from stream, strangely");
+									System.err.println("Appending a 0");
+								}
 								input[read++] = 0;
 							}
 						}
@@ -188,29 +205,39 @@ class Kelinci {
 						Future<Long> future = executor.submit(new ApplicationCall(input));
 
 						try {
-							System.out.println("Started..");
+							if (verbosity > 1)
+								System.out.println("Started...");
 							future.get(APPLICATION_TIMEOUT, TimeUnit.SECONDS);
 							result = STATUS_SUCCESS;
-							System.out.println("Result: " + result);
-							System.out.println("Finished!");
+							if (verbosity > 1)
+								System.out.println("Finished!");
 						} catch (TimeoutException te) {
 							future.cancel(true);
-							System.out.println("Time-out!");
+							if (verbosity > 1) 
+								System.out.println("Time-out!");
 							result = STATUS_TIMEOUT;
-						} catch (Exception e) {
+						} catch (Throwable e) {
 							future.cancel(true);
 							if (e.getCause() instanceof RuntimeException) {
-								System.out.println("RuntimeException thrown!");
+								if (verbosity > 1) 
+									System.out.println("RuntimeException thrown!");
 							} else if (e.getCause() instanceof Error) {
-								System.out.println("Error thrown!");
+								if (verbosity > 1) 
+									System.out.println("Error thrown!");
 							} else {
-								System.out.println("Uncaught throwable!");
+								if (verbosity > 1) 
+									System.out.println("Uncaught throwable!");
 							}
 							e.printStackTrace();
 						}
 						executor.shutdownNow();
-
 					}
+					
+					if (verbosity > 1)
+						System.out.println("Result: " + result);
+					
+					if (verbosity > 2)
+						Mem.print();
 
 					// send back status
 					os.write(result);
@@ -224,7 +251,8 @@ class Kelinci {
 					request.clientSocket.shutdownInput();
 					request.clientSocket.setSoLinger(true, 100000);
 					request.clientSocket.close();
-					System.out.println("Connection closed.");
+					if (verbosity > 1) 
+						System.out.println("Connection closed.");
 
 				} else {
 					// if no request, close your eyes for a bit
@@ -232,7 +260,8 @@ class Kelinci {
 				}
 			} catch (SocketException se) {
 				// Connection was reset, most probably means AFL process was killed.
-				System.out.println("Connection reset.");
+				if (verbosity > 1) 
+					System.out.println("Connection reset.");
 			} catch (Exception e) {
 				e.printStackTrace();
 				throw new RuntimeException("Exception running fuzzed input");
@@ -247,21 +276,35 @@ class Kelinci {
 		 * grab -port option and store command-line parameters for fuzzing runs.
 		 */
 		if (args.length < 1) {
-			System.err.println("Usage: java edu.cmu.sv.kelinci.Kelinci [-port N] package.ExampleMain <args>");
+			System.err.println("Usage: java edu.cmu.sv.kelinci.Kelinci [-v N] [-port N] package.ExampleMain <args>");
 			return;
 		}
 
-		final int port;
-		int offset = 0;
-		if (args.length > 1 && args[0].equals("-port")) {
-			port = Integer.parseInt(args[1]);
-			targetArgs = Arrays.copyOfRange(args, 3, args.length);
-			offset += 2;
-		} else {
-			port = DEFAULT_PORT;
-			targetArgs = Arrays.copyOfRange(args, 1, args.length);			
+		int port = DEFAULT_PORT;		
+		int curArg = 0;
+		while (args.length > curArg) {
+			if (args[curArg].equals("-port")) {
+				port = Integer.parseInt(args[curArg+1]);
+				curArg += 2;
+			} else if (args[curArg].equals("-v")) {
+				verbosity = Integer.parseInt(args[curArg+1]);
+				curArg += 2;
+			} else {
+				break;
+			}
 		}
-		String mainClass = args[offset];
+		String mainClass = args[curArg];
+		targetArgs = Arrays.copyOfRange(args, curArg+1, args.length);
+		final int port_final = port;
+		
+		/**
+		 * Redirect target program output to /dev/null if requested.
+		 */
+		if (verbosity <= 0) {
+			PrintStream nullStream = new PrintStream(new NullByteArrayOutputStream());
+			System.setOut(nullStream);
+			System.setErr(nullStream);
+		}
 
 		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 		try {
@@ -294,7 +337,7 @@ class Kelinci {
 		Thread server = new Thread(new Runnable() {
 			@Override
 			public void run() {
-				runServer(port);
+				runServer(port_final);
 			}
 		});
 		server.start();
@@ -312,4 +355,31 @@ class Kelinci {
 		});
 		fuzzerRuns.start();
 	}
+	
+	/**
+	 * Stream to /dev/null. Used to redirect output of target program.
+	 * I know something like this is also in Apache Commons IO, but if I include it here, 
+	 * we don't need any libs on the classpath when running the Kelinci server.
+	 * 
+	 * @author rodykers
+	 *
+	 */
+	private static class NullByteArrayOutputStream extends ByteArrayOutputStream {
+
+	    @Override
+	    public void write(int b) {
+	      // do nothing
+	    }
+
+	    @Override
+	    public void write(byte[] b, int off, int len) {
+	      // do nothing
+	    }
+
+	    @Override
+	    public void writeTo(OutputStream out) throws IOException {
+	      // do nothing
+	    }
+
+	  }
 }
