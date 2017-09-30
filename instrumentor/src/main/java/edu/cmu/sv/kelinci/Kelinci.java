@@ -33,7 +33,6 @@ import java.util.concurrent.TimeoutException;
  */
 class Kelinci {
 
-	public static final int DEFAULT_PORT = 7007;
 	private static final int maxQueue = 10;
 	private static Queue<FuzzRequest> requestQueue = new ConcurrentLinkedQueue<>();
 
@@ -44,10 +43,14 @@ class Kelinci {
 	public static final byte STATUS_COMM_ERROR = 4;
 	public static final byte STATUS_DONE = 5;
 
-	public static final int APPLICATION_TIMEOUT = 300; // in seconds
+	public static final int DEFAULT_TIMEOUT = 300000; // in milliseconds
+	private static int timeout;
 	
 	public static final int DEFAULT_VERBOSITY = 2;
 	private static int verbosity;
+	
+	public static final int DEFAULT_PORT = 7007;
+	private static int port;
 
 	private static Method targetMain;
 	private static String targetArgs[];
@@ -66,7 +69,7 @@ class Kelinci {
 	 * Method to run in a thread to accept requests coming
 	 * in over TCP and put them in a queue.
 	 */
-	private static void runServer(int port) {
+	private static void runServer() {
 
 		try (ServerSocket ss = new ServerSocket(port)) {
 			if (verbosity > 1)
@@ -156,7 +159,6 @@ class Kelinci {
 
 	/**
 	 * Method to run in a thread handling one request from the queue at a time.
-	 * Kelinci starts NUM_FUZZER_THREADS of these.
 	 */
 	private static void doFuzzerRuns() {
 		if (verbosity > 1) 
@@ -207,7 +209,7 @@ class Kelinci {
 						try {
 							if (verbosity > 1)
 								System.out.println("Started...");
-							future.get(APPLICATION_TIMEOUT, TimeUnit.SECONDS);
+							future.get(timeout, TimeUnit.MILLISECONDS);
 							result = STATUS_SUCCESS;
 							if (verbosity > 1)
 								System.out.println("Finished!");
@@ -276,11 +278,14 @@ class Kelinci {
 		 * grab -port option and store command-line parameters for fuzzing runs.
 		 */
 		if (args.length < 1) {
-			System.err.println("Usage: java edu.cmu.sv.kelinci.Kelinci [-v N] [-port N] package.ExampleMain <args>");
+			System.err.println("Usage: java edu.cmu.sv.kelinci.Kelinci [-v N] [-p N] [-t N] package.ExampleMain <args>");
 			return;
 		}
 
-		int port = DEFAULT_PORT;		
+		port = DEFAULT_PORT;
+		timeout = DEFAULT_TIMEOUT;
+		verbosity = DEFAULT_VERBOSITY;
+		
 		int curArg = 0;
 		while (args.length > curArg) {
 			if (args[curArg].equals("-port")) {
@@ -289,13 +294,15 @@ class Kelinci {
 			} else if (args[curArg].equals("-v")) {
 				verbosity = Integer.parseInt(args[curArg+1]);
 				curArg += 2;
+			} else if (args[curArg].equals("-t")) {
+				timeout = Integer.parseInt(args[curArg+1]);
+				curArg += 2;
 			} else {
 				break;
 			}
 		}
 		String mainClass = args[curArg];
 		targetArgs = Arrays.copyOfRange(args, curArg+1, args.length);
-		final int port_final = port;
 		
 		/**
 		 * Check if at least one of the target parameters is @@
@@ -316,7 +323,7 @@ class Kelinci {
 		 * Redirect target program output to /dev/null if requested.
 		 */
 		if (verbosity <= 0) {
-			PrintStream nullStream = new PrintStream(new NullByteArrayOutputStream());
+			PrintStream nullStream = new PrintStream(new NullOutputStream());
 			System.setOut(nullStream);
 			System.setErr(nullStream);
 		}
@@ -352,7 +359,7 @@ class Kelinci {
 		Thread server = new Thread(new Runnable() {
 			@Override
 			public void run() {
-				runServer(port_final);
+				runServer();
 			}
 		});
 		server.start();
@@ -380,22 +387,15 @@ class Kelinci {
 	 * @author rodykers
 	 *
 	 */
-	private static class NullByteArrayOutputStream extends ByteArrayOutputStream {
+	private static class NullOutputStream extends ByteArrayOutputStream {
 
 	    @Override
-	    public void write(int b) {
-	      // do nothing
-	    }
+	    public void write(int b) {}
 
 	    @Override
-	    public void write(byte[] b, int off, int len) {
-	      // do nothing
-	    }
+	    public void write(byte[] b, int off, int len) {}
 
 	    @Override
-	    public void writeTo(OutputStream out) throws IOException {
-	      // do nothing
-	    }
-
+	    public void writeTo(OutputStream out) throws IOException {}
 	  }
 }

@@ -23,9 +23,10 @@ To build, run `gradle build` in the 'instrumentor' subdirectory. Next, run the I
 `java -jar build/libs/kelinci.jar -i <class-or-jar> -o <output-dir>` (you'll need to make sure that the input class
  is also on the classpath). This should print which classes were written to the output directory. Next, we want to 
 start the server that will handle requests from the fuzzer side and execute the target application on them. 
-Run `java -cp <output-dir> edu.cmu.sv.kelinci.Kelinci [-v V] [-port P] target.Application <target-args>`, where <output-dir> is
-the directory where the Instrumentor wrote its output, V is an optional verbosity level (0-3 for silent to very verbose),
-P is an optional port number (default is 7007) and <target-args> are the usual parameters to the target
+Run `java -cp <output-dir> edu.cmu.sv.kelinci.Kelinci [-v V] [-p P] [-t T] target.Application <target-args>`, 
+where <output-dir> is the directory where the Instrumentor wrote its output, V is an optional verbosity 
+level (0-3 for silent to very verbose), P is an optional port number (default is 7007), T is an optional 
+time-out in milliseconds (default is 300000 / 5 minutes) and <target-args> are the usual parameters to the target
 application. Kelinci will pass the provided arguments on to the target application. At least one of the arguments
 should be @@, which will be replaced by the path to the file on which it will be executed.
 

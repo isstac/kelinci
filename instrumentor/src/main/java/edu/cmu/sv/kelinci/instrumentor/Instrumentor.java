@@ -66,7 +66,7 @@ public class Instrumentor {
 				"edu/cmu/sv/kelinci/Kelinci$2.class",
 				"edu/cmu/sv/kelinci/Kelinci$ApplicationCall.class",
 				"edu/cmu/sv/kelinci/Kelinci$FuzzRequest.class",
-				"edu/cmu/sv/kelinci/Kelinci$NullByteArrayOutputStream.class",
+				"edu/cmu/sv/kelinci/Kelinci$NullOutputStream.class",
 				"edu/cmu/sv/kelinci/Mem.class"
 				};
 		for (String resource : resources) {
