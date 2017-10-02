@@ -287,13 +287,13 @@ class Kelinci {
 		
 		int curArg = 0;
 		while (args.length > curArg) {
-			if (args[curArg].equals("-port")) {
+			if (args[curArg].equals("-p") || args[curArg].equals("-port")) {
 				port = Integer.parseInt(args[curArg+1]);
 				curArg += 2;
-			} else if (args[curArg].equals("-v")) {
+			} else if (args[curArg].equals("-v") || args[curArg].equals("-verbosity")) {
 				verbosity = Integer.parseInt(args[curArg+1]);
 				curArg += 2;
-			} else if (args[curArg].equals("-t")) {
+			} else if (args[curArg].equals("-t") || args[curArg].equals("-timeout")) {
 				timeout = Integer.parseInt(args[curArg+1]);
 				curArg += 2;
 			} else {
