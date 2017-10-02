@@ -118,8 +118,7 @@ class Kelinci {
 	private static long runApplication(byte input[]) {
 		Mem.clear();
 		long runtime = -1L;
-		try {
-			FileOutputStream stream = new FileOutputStream(tmpfile);
+		try (FileOutputStream stream = new FileOutputStream(tmpfile)) {			
 			stream.write(input);
 			stream.close();
 			String[] args = Arrays.copyOf(targetArgs, targetArgs.length);
