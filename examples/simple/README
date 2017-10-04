@@ -1,4 +1,6 @@
-Steps to run this example
+This is a simple example of a program containing branches and a bug. Kelinci can discover the different behaviors and the bug.
+
+Steps to run this example:
 
 1. Compile example
 mkdir bin

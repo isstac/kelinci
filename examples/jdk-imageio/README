@@ -1,0 +1,29 @@
+This driver was used to discover a bug in the javax.imageio.ImageIO class. The bug report can be found here: http://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8188756
+The provided NegSegmentSize.JPEG image triggers the bug.
+
+Steps to run this example:
+
+1. Compile example
+mkdir bin
+javac src/*.java -d bin
+
+2. Instrument
+java -cp ../../instrumentor/build/libs/kelinci.jar edu.cmu.sv.kelinci.instrumentor.Instrumentor -i bin -o bin-instrumented
+
+3. Create input directory for AFL and download cute American Fuzzy Lop photo
+mkdir in_dir
+wget http://www.petguide.com/wp-content/uploads/2016/05/american-fuzzy-lop-2.jpg -P in_dir
+
+4. Test binary (should print "Done.")
+java -cp bin-instrumented DriverKelinci in_dir/american-fuzzy-lop-2.jpg
+
+5. Start Kelinci server
+java -cp bin-instrumented edu.cmu.sv.kelinci.Kelinci DriverKelinci @@
+
+6. Test interface (should send file to server, then receive results, then print "Terminating normally.")
+../../fuzzerside/interface in_dir/american-fuzzy-lop-2.jpg
+
+7. Run AFL
+afl-fuzz -i in_dir -o out_dir ../../fuzzerside/interface @@
+
+After a short while, AFL should start discovering new paths, including the reported crash.
