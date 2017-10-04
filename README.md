@@ -9,8 +9,8 @@ This README assumes that AFL has been previously installed. For information on h
 Several examples are provided in the 'examples' directory, where each comes with a README specifying the exact steps to take in order to repeat the experiment.
 
 Kelinci has identified bugs related to JPEG parsing in OpenJDK (versions 6-9) and Apache Commons Imaging 1.0 RC7. Both are included in the provided examples. These are the bug reports:
-http://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8188756
-https://issues.apache.org/jira/browse/IMAGING-203
+- http://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8188756
+- https://issues.apache.org/jira/browse/IMAGING-203
 
 ### Installation ###
 
