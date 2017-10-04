@@ -42,8 +42,9 @@ public class Instrumentor {
 		Set<String> inputClasses = Options.v().getInput();
 		
 		for (String cls : inputClasses) {
+			System.out.println("Instrumenting class: " + cls);
 			InputStream bytecode = classloader.getResourceAsStream(cls);
-
+			
 			ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
 			ClassTransformer ct = new ClassTransformer(cw);
 			ClassReader cr;
@@ -54,9 +55,18 @@ public class Instrumentor {
 				e.printStackTrace();
 				return;
 			}
-			cr.accept(ct, 0);
-			byte[] bytes = cw.toByteArray();
-			writeClass(cls, bytes);
+			
+			try {
+				cr.accept(ct, 0);
+				byte[] bytes = cw.toByteArray();
+				writeClass(cls, bytes);
+			} catch (RuntimeException rte) {
+				System.out.println("[WARNING] RuntimeException thrown during instrumentation: " + rte.getMessage());
+				System.out.println("Skipping class " + cls);
+				// include original, uninstrumented class in output
+				loadAndWriteResource(cls);
+			}
+			
 		}
 
 		// add Kelinci classes
@@ -70,20 +80,7 @@ public class Instrumentor {
 				"edu/cmu/sv/kelinci/Mem.class"
 				};
 		for (String resource : resources) {
-			InputStream is = classloader.getResourceAsStream(resource);
-			if (is == null) {
-				System.err.println("Error loading Kelinci classes for addition to output");
-				return;
-			}
-			byte[] rbytes;
-			try {
-				rbytes = IOUtils.toByteArray(is);
-			} catch (IOException e) {
-				System.err.println("Error loading Kelinci classes for addition to output");
-				e.printStackTrace();
-				return;
-			}
-			writeClass(resource, rbytes);
+			loadAndWriteResource(resource);
 		}
 	}
 
@@ -106,4 +103,20 @@ public class Instrumentor {
 		}
 	}
 
+	private static void loadAndWriteResource(String resource) {
+		InputStream is = classloader.getResourceAsStream(resource);
+		if (is == null) {
+			System.err.println("Error loading Kelinci classes for addition to output");
+			return;
+		}
+		byte[] rbytes;
+		try {
+			rbytes = IOUtils.toByteArray(is);
+		} catch (IOException e) {
+			System.err.println("Error loading Kelinci classes for addition to output");
+			e.printStackTrace();
+			return;
+		}
+		writeClass(resource, rbytes);
+	}
 }
