@@ -27,3 +27,4 @@ java -cp bin-instrumented edu.cmu.sv.kelinci.Kelinci DriverKelinci @@
 afl-fuzz -i in_dir -o out_dir ../../fuzzerside/interface @@
 
 After a short while, AFL should start discovering new paths, including the reported crash.
+Note that, in this case, the JDK libraries have not been instrumented and the bug is thus found by random mutations only (i.e. not because the fuzzer is directed to new behaviors). The JDK libraries can be instrumented, but it takes a long time to do so (though you'll only need to do it once for each new Kelinci version). 

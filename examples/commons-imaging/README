@@ -1,0 +1,47 @@
+This driver was used to discover a bug in the Apache Commons Imaging 1.0 RC7. The bug report can be found here: https://issues.apache.org/jira/browse/IMAGING-203
+The provided NegSegmentSize.JPEG image triggers the bug. The experiment is described in our CCS'17 paper, found under 'docs' in this repository.
+
+The experiment was inspired by Michal Zalewski's blog "Pulling JPEGs out of thin air": https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html
+
+Steps to run this example:
+
+1. Download Apache Commons Imaging 1.0 RC7
+wget https://github.com/apache/commons-imaging/archive/commons-imaging-1.0-RC7.tar.gz
+
+2. Unpack
+tar -xzvf commons-imaging-1.0-RC7.tar.gz
+
+3. Build Apache Commons Imaging (tests fail on my system, but it seems no problem to skip them)
+cd commons-imaging-commons-imaging-1.0-RC7 
+mvn install -DskipTests
+cd ..
+
+4. Instrument Apache Commons Imaging (this may take a few minutes)
+java -cp ../../instrumentor/build/libs/kelinci.jar edu.cmu.sv.kelinci.instrumentor.Instrumentor -i commons-imaging-commons-imaging-1.0-RC7/target/commons-imaging-1.0.jar -o commons-imaging-1.0-instrumented.jar
+
+5. Compile driver
+mkdir bin
+javac -cp commons-imaging-1.0-instrumented.jar src/*.java -d bin
+
+6. Instrument driver
+java -cp ../../instrumentor/build/libs/kelinci.jar:commons-imaging-1.0-instrumented.jar edu.cmu.sv.kelinci.instrumentor.Instrumentor -i bin -o bin-instrumented
+
+7. Create input directory.
+mkdir in_dir
+
+8. Create file in input directory
+echo "hello" > in_dir/example
+
+9. Test binary (should print "Done.")
+java -cp bin-instrumented:commons-imaging-1.0-instrumented.jar driver.Driver in_dir/example
+
+10. Start Kelinci server
+java -cp bin-instrumented:commons-imaging-1.0-instrumented.jar edu.cmu.sv.kelinci.Kelinci driver.Driver @@
+
+11. Test interface (should send file to server, then receive results, then print "Terminating normally.")
+../../fuzzerside/interface in_dir/example
+
+12. Run AFL
+afl-fuzz -i in_dir -o out_dir ../../fuzzerside/interface @@
+
+Keep an eye on the output directory. In particular, the 'queue' subdirectory will contain input files triggering new behaviors. One may want to have a look at them with e.g. hexdump. After a while, AFL should identify a new path, due to finding the correct first byte of a JPEG header (0xFF). Later, it will identify the second byte of the header (0xD8). At some point it will find the described bug. In our experiment, it took about 35 minutes.
