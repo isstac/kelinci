@@ -1,0 +1,26 @@
+Steps to run this example
+
+1. Compile example
+mkdir bin
+javac src/*.java -d bin
+
+2. Instrument
+java -cp ../../instrumentor/build/libs/kelinci.jar edu.cmu.sv.kelinci.instrumentor.Instrumentor -i bin -o bin-instrumented
+
+3. Create input directory for AFL
+mkdir in_dir
+echo "hello" > in_dir/example
+
+4. Test binary (should print "Main done.")
+java -cp bin-instrumented SimpleBuggy in_dir/example
+
+5. Start Kelinci server
+java -cp bin-instrumented edu.cmu.sv.kelinci.Kelinci SimpleBuggy @@
+
+6. Test interface (should send file to server, then receive results, then print "Terminating normally.")
+../../fuzzerside/interface in_dir/example
+
+7. Run AFL
+afl-fuzz -i in_dir -o out_dir ../../fuzzerside/interface @@
+
+The program contains various branches, and therefore AFL should be detecting different behaviors. Input files for these will be written to out_dir/queue. The program also contains a bug that is trigger when first character is '2' + k*10 (for any k). AFL should find this fairly quickly (often before the interface is even displayed). The input file for this will be written to out_dir/crashes.

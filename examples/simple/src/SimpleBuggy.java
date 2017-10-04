@@ -1,17 +1,15 @@
-package edu.cmu.sv.kelinci.instrumentor.examples;
-
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
-import edu.cmu.sv.kelinci.Mem;
-
 /**
- * Just a program with some branches, so lots of different "behaviors".
+ * Just a program with some branches, so lots of different behaviors.
+ * It contains a bug that is triggered when the first byte of the input
+ * is 2.
  * 
  * @author Rody Kersten
  */
-public class AFLFeedback {
+public class SimpleBuggy {
 
 	// 2 paths
 	public void doIf(int n) {
@@ -56,14 +54,17 @@ public class AFLFeedback {
 		return z;
 	}
 	
+	/**
+	 * Parses 4 characters from a file as integers and calls the above methods.
+	 **/
 	public static void main(String args[]) {
 
-		AFLFeedback x = new AFLFeedback();
+		SimpleBuggy x = new SimpleBuggy();
 		try (FileInputStream stream = new FileInputStream(args[0])) {
-			x.doIf(stream.read()-'0');
-			x.doFor(stream.read()-'0');
-			x.doLookupSwitch(stream.read()-'0');
-			x.doTableSwitch(stream.read()-'0');
+			x.doIf((stream.read()-'0') % 10);
+			x.doFor((stream.read()-'0') % 10);
+			x.doLookupSwitch((stream.read()-'0') % 10);
+			x.doTableSwitch((stream.read()-'0') % 10);
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -71,8 +72,6 @@ public class AFLFeedback {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
 		System.out.println("Main done.");
-		Mem.print();
 	}
 }
