@@ -6,7 +6,13 @@ Kelinci means rabbit in Indonesian (the language spoken on Java).
 
 This README assumes that AFL has been previously installed. For information on how to install and use AFL, please see <http://lcamtuf.coredump.cx/afl/>. Kelinci has been tested successfully with AFL versions 2.44 and newer. The README explains how to use the tool. For technical background, please see the CCS'17 paper in the 'docs' directory. 
 
-### Set up ###
+Several examples are provided in the 'examples' directory, where each comes with a README specifying the exact steps to take in order to repeat the experiment.
+
+Kelinci has identified bugs related to JPEG parsing in OpenJDK (versions 6-9) and Apache Commons Imaging 1.0 RC7. Both are included in the provided examples. These are the bug reports:
+http://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8188756
+https://issues.apache.org/jira/browse/IMAGING-203
+
+### Installation ###
 
 The application has two components. First, there is a C application that acts as the target application for AFL.
 It behaves the same as an application built with afl-gcc / afl-g++; AFL cannot tell the difference.
@@ -18,26 +24,45 @@ The second component is on the JAVA side. It is found in the 'instrumentor' subd
 This component instruments a target application with AFL style administration, plus a component to communicate
 with the C side. When later executing the instrumented program, this sets up a TCP server and runs the target 
 application in a separate thread for each incoming request. It sends back an exit code (succes, timeout, crash 
-or queue full), plus the gathered path information. Any exception escaping main is considered a crash.  
-To build, run `gradle build` in the 'instrumentor' subdirectory. Next, run the Instrumentor on a class or JAR with
-`java -jar build/libs/kelinci.jar -i <class-or-jar> -o <output-dir>` (you'll need to make sure that the input class
- is also on the classpath). This should print which classes were written to the output directory. Next, we want to 
-start the server that will handle requests from the fuzzer side and execute the target application on them. 
-Run `java -cp <output-dir> edu.cmu.sv.kelinci.Kelinci [-v V] [-p P] [-t T] target.Application <target-args>`, 
-where <output-dir> is the directory where the Instrumentor wrote its output, V is an optional verbosity 
-level (0-3 for silent to very verbose), P is an optional port number (default is 7007), T is an optional 
-time-out in milliseconds (default is 300000 / 5 minutes) and <target-args> are the usual parameters to the target
-application. Kelinci will pass the provided arguments on to the target application. At least one of the arguments
-should be @@, which will be replaced by the path to the file on which it will be executed.
+or queue full), plus the gathered path information. Any exception escaping main is considered a crash.
+To build, run `gradle build` in the 'instrumentor' subdirectory. 
 
-Once the server is running, we can start AFL. We will need a directory with at least one input file from
-which to start fuzzing, e.g. 'in\_dir'. Let's start by checking that the connection with the server is running,
-by running the interface without AFL: `./interface in\_dir/input.txt` (or similar, for some input file).
-The last line output by this test should be 'Received results. Terminating.'. If the connection is working, we
-can run AFL with `afl-fuzz -i in\_dir -o out\_dir ./interface @@`. This assumes that AFL has been compiled
-on the system and an alias for 'afl-fuzz' has been set-up.
+### Usage ###
 
-In case one wishes to run multiple instances of the Java side in parallel, one may use the -s flag for interface.c to specify a file that lists the servers to use. Each line in the file lists the server (URI or IP) and optionally the port after a colon. An example servers file is:
+This describes how to run Kelinci on a target application. It assumes AFL and both Kelinci components have been built.
+
+**1. Optional: build a driver**
+AFL/Kelinci expects a program that takes a parameter specifying a file location. It randomly mutates files to fuzz this program. If this is not how your target application works, a driver will need to be built that parses an input file and simulates the normal interaction based on that. When building a driver, remember that the input files will be randomly mutated. The less structure and cohesion the program expects in the file, the more effective fuzzing will be. Even if the program does accept an input file, it could make sense to build a driver that accepts a different format in order to maximize the ratio of valid version invalid input files.
+
+One more thing to take into account when building a driver is that the target program will be running in a VM where the main method will be invoked again and again. All runs must be independent and deterministic. If the program for instance stores information from an input in a database or a static memory location, be sure to reset it such that it cannot affect future runs.
+
+**2. Instrument**
+We'll assume that the target application and driver were built and the output directory is 'bin'. Our next step is to instrument the classes for use with Kelinci. The tool provides the edu.cmu.sv.kelinci.instrumentor.Instrumentor class for this. It takes an input directory after the `-i` flag (here 'bin') and an output directory after the `-o` flag (here 'bin-instrumented'). We'll need to make sure that the kelinci JAR is on the classpath, as well as all the dependencies of the target application. Assuming the JARs that the target application depends on are in /path/to/libs/, the command to instrument looks like this:
+
+```java -cp /path/to/kelinci/instrumentor/build/libs/kelinci.jar:/path/to/libs/* edu.cmu.sv.kelinci.instrumentor.Instrumentor -i bin -o bin-instrumented```
+
+Note that there may be trouble if the project depends on different versions of libraries that the Kelinci Instrumentor also depends on. Currently, these are args4j version 2.32, ASM 5.2 and Apache Commons IO 2.4. In most cases, one can make this work by putting the 'classes' directory of the Kelinci build on the class path instead of the Fat JAR, then add a version of the library JARs to the classpath that both Kelinci and the target work with.
+
+**3. Create example input**
+We want to test that the instrumented Java application works now. To do this, create a directory for example input file(s):
+```mkdir in_dir```
+
+AFL will later use this directory to grab the input file(s) that it will mutate. It is therefor very important to have representative input files in there. Copy representative file(s) in there, or create them.
+
+**4. Optional: test the Java application**
+See if the instrumented Java application works with the provided / created input files:
+```java -cp bin-instrumented:/path/to/libs/* <driver-classname> in_dir/<filename>```
+
+**5. Start the Kelinci server**
+We can now start the Kelinci server. We will simply edit the last command we executed, which ran the Java application. Kelinci expects the main class of the target application as the first parameter, so we can now just add the Kelinci main class before that one. We'll also need to replace the concrete file name by `@@`, which will be replaced by Kelinci with the actual path of the input file it wrote. Other parameters are ok and will be fixed across runs.
+
+```java -cp bin-instrumented:/path/to/libs/* edu.cmu.sv.kelinci.Kelinci <driver-classname> @@```
+
+Optionally, we can specify a port number (the default is 7007):
+```java -cp bin-instrumented:/path/to/libs/* edu.cmu.sv.kelinci.Kelinci -port 6666 <driver-classname> @@```
+
+**6. Optional: create server list**
+On the fuzzer side, if we do not specify anything, the interface will try to connect to localhost at port 7007. If we want the fuzzer side to either connect to a non-standard server / port, or to send input files round robin to multiple servers (i.e. when running in the cloud), we can create a file with a list of servers, e.g. servers.txt. Each line in the file lists the server (URI or IP) and optionally the port after a colon. An example servers file is:
 ```
 localhost:7007
 1.1.1.1:7008
@@ -45,6 +70,20 @@ localhost:7007
 3.3.3.3:7009
 ```
 The Java side application does not handle multiple input files in parallel, as those runs could potentially interfere with one another. Instead, if one wants to leverage multiple processor cores on one systems, multiple instances of the Java side application should be started listening to different ports.
+
+**7. Optional: test the interface**
+Before we start the fuzzer, let's make sure that the connection to the Java side is working as expected. The `interface.c` program has a mode for running outside of AFL as well, so we can test it as follows:
+```/path/to/kelinci/fuzzerside/interface in_dir/<filename>```
+
+If we created a list of servers in step 6, we can add it as follows:
+```/path/to/kelinci/fuzzerside/interface -s servers.txt in_dir/<filename>```
+
+**8. Start fuzzing!**
+If everything works as expected, we can now start AFL! Like the Kelinci server side, AFL expects a binary that takes an input file as a parameter, specified by `@@`. In our case, this is always the `interface` binary. It also expects a directory with input files from which to start fuzzing, plus an output directory.
+
+```/path/to/afl/afl-fuzz -i in_dir -o out_dir /path/to/kelinci/fuzzerside/interface [-s servers.txt] @@```
+
+If everything works, the AFL interface will start up after a short while and you'll notice new paths being discovered. For additional monitoring, have a look at the output directory. The input files in the 'queue' subdirectory all trigger different program behaviors. There are also 'crashes' and 'hangs' subdirectories that contain inputs that resulted in a crash or a time-out. Please see the AFL website for more details: http://lcamtuf.coredump.cx/afl/
 
 ### Developer ###
 
