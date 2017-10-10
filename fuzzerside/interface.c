@@ -46,7 +46,7 @@ FILE* logfile;
 int in_afl = 0;
 
 #define OUTPUT_STDOUT
-#define OUTPUT_FILE
+//#define OUTPUT_FILE
 
 void LOG(const char* format, ...) {
   va_list args;
