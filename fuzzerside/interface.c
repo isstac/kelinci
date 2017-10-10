@@ -122,6 +122,9 @@ int main(int argc, char** argv) {
 
     // read servers file
     FILE *sfile = fopen(argv[2], "r");
+    if (!sfile) {
+      DIE("File does not exist: %s\n", argv[2]);
+    }      
     
     //count lines first
     int lines = 0;
