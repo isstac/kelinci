@@ -24,9 +24,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * TODO add "local" mode that prevents sending input files
- * TODO Option to replace System.exit() with RuntimeException?
- * TODO put in the cloud
  * 
  * @author rodykers
  *
@@ -439,9 +436,7 @@ class Kelinci {
 		server.start();
 
 		/**
-		 * Handle requests for fuzzer runs in multiple threads.
-		 * The number of threads can be specified by the user with the -threads option.
-		 * By default, the number of threads is equal to the number of available processors - 1.
+		 * Handle requests for fuzzer runs in separate thread.
 		 */
 		Thread fuzzerRuns = new Thread(new Runnable() {
 			@Override
