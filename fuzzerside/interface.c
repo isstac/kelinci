@@ -32,7 +32,6 @@
 
 #define MAX_TRIES 40
 
-#define MAX_URI_LENGTH 100
 #define DEFAULT_SERVER "localhost"
 #define DEFAULT_PORT "7007"
 
@@ -99,6 +98,10 @@ void setup_tcp_connection(const char* hostname, const char* port) {
   freeaddrinfo(res);
 }
 
+void printUsageAndDie() {
+  DIE("Usage: interface [-s <server>] [-p <port>] <filename>\n");
+}
+
 int main(int argc, char** argv) {
 
   /* Stdout is piped to null, so write output to a file */
@@ -109,62 +112,42 @@ int main(int argc, char** argv) {
   }
 #endif
 
-  /* Parse input */
-  if (argc != 2 && !(argc == 4 && argv[1][0] == '-' && argv[1][1] == 's')) {
-    DIE("Usage: interface [-s <server-list-file>] <filename>\n");
-  }
+  /* Parameters */
   const char* filename;
-  int num_servers;
-  char** servers;
-  char** ports;
-  if (argc == 4) {
-    filename = argv[3];
+  char* server = DEFAULT_SERVER;
+  char* port = DEFAULT_PORT;
 
-    // read servers file
-    FILE *sfile = fopen(argv[2], "r");
-    if (!sfile) {
-      DIE("File does not exist: %s\n", argv[2]);
-    }      
-    
-    //count lines first
-    int lines = 0;
-    char buf[MAX_URI_LENGTH];
-    while (fgets(buf, MAX_URI_LENGTH, sfile) != NULL)
-      lines++;
-    rewind(sfile);
+  /* Check num of parameters */
+  if (argc < 2)
+    printUsageAndDie();
 
-    //now load them
-    servers = (char**) malloc(lines * sizeof(char *));
-    ports = (char**) malloc(lines * sizeof(char *));
-    for (int line = 0; line < lines; line++) {
-      servers[line] = malloc(MAX_URI_LENGTH+6 * sizeof(char)); // +6 for port
-      fgets(servers[line], MAX_URI_LENGTH, sfile);
-      servers[line][strlen(servers[line])-1] = '\0'; // strip newline char
-
-      // if has port, store it
-      char* colon_pos = strchr(servers[line], ':');
-      if (colon_pos) {
-	ports[line] = colon_pos+1;
-	*colon_pos = '\0';
+  /* Parse parameters */
+  int curArg = 1;
+  while (curArg < argc) {
+    if (argv[curArg][0] == '-') { //flag
+      if (argv[curArg][1] == 's') {
+        // set server
+	server = argv[curArg+1];
+	curArg += 2;
+      } else if (argv[curArg][1] == 'p') {
+        // set port
+	port = argv[curArg+1];
+	curArg += 2;
       } else {
-	ports[line] = DEFAULT_PORT;
+        LOG("Unkown flag: %s\n", argv[curArg]);
+	printUsageAndDie();
       }
+    } else {
+      break; // expect filename now
     }
-    num_servers = lines;
-
-    fclose(sfile);
-  } else {
-    filename = argv[1];
-    num_servers = 1;
-    servers = (char**) malloc(sizeof(char *));
-    ports = (char**) malloc(sizeof(char *));
-    servers[0] = DEFAULT_SERVER;
-    ports[0] = DEFAULT_PORT;
   }
-  LOG("input file = %s\n", filename);
+  if (curArg != argc-1)
+    printUsageAndDie();
+  filename = argv[curArg];
 
-  // go round robin over list of servers
-  int server_to_use = 0;
+  LOG("server = %s\n", server);
+  LOG("port = %s\n", port);
+  LOG("input file = %s\n", filename);
 
   /* Preamble instrumentation */
   char* shmname = getenv(SHM_ENV_VAR);
@@ -215,11 +198,6 @@ int main(int argc, char** argv) {
 
       LOGIFVERBOSE("Status %d \n", status);
       write(199, &status, 4);
-
-      // round robin use of servers
-      server_to_use++;
-      if (server_to_use >= num_servers)
-	      server_to_use = 0;
     }
 
     resume:
@@ -249,7 +227,7 @@ int main(int argc, char** argv) {
     if(try > 0)
       usleep(100000);
 
-    setup_tcp_connection(servers[server_to_use], ports[server_to_use]);
+    setup_tcp_connection(server, port);
     file = fopen(filename, "r");
     if (file) {
       // get file size and send
@@ -333,8 +311,6 @@ cont: close(tcp_socket);
    * If JAVA side timed out, keep looping here till AFL hits its time-out.
    * In a good set-up, the time-out on the JAVA process is slightly longer
    * than AFLs time-out to prevent hitting this.
-   *
-   * TODO: test this
    **/
   if (status == STATUS_TIMEOUT) {
     LOG("Starting infinite loop...\n");

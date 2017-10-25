@@ -61,29 +61,27 @@ We can now start the Kelinci server. We will simply edit the last command we exe
 Optionally, we can specify a port number (the default is 7007):
 ```java -cp bin-instrumented:/path/to/libs/* edu.cmu.sv.kelinci.Kelinci -port 6666 <driver-classname> @@```
 
-**6. Optional: create server list**
-On the fuzzer side, if we do not specify anything, the interface will try to connect to localhost at port 7007. If we want the fuzzer side to either connect to a non-standard server / port, or to send input files round robin to multiple servers (i.e. when running in the cloud), we can create a file with a list of servers, e.g. servers.txt. Each line in the file lists the server (URI or IP) and optionally the port after a colon. An example servers file is:
-```
-localhost:7007
-1.1.1.1:7008
-2.2.2.2
-3.3.3.3:7009
-```
-The Java side application does not handle multiple input files in parallel, as those runs could potentially interfere with one another. Instead, if one wants to leverage multiple processor cores on one systems, multiple instances of the Java side application should be started listening to different ports.
-
-**7. Optional: test the interface**
+**6. Optional: test the interface**
 Before we start the fuzzer, let's make sure that the connection to the Java side is working as expected. The `interface.c` program has a mode for running outside of AFL as well, so we can test it as follows:
 ```/path/to/kelinci/fuzzerside/interface in_dir/<filename>```
 
 If we created a list of servers in step 6, we can add it as follows:
 ```/path/to/kelinci/fuzzerside/interface -s servers.txt in_dir/<filename>```
 
-**8. Start fuzzing!**
+Optionally, we can specify a server with the -s flag (e.g. -s 192.168.1.1 or "sv.cmu.edu", default is "localhost") and a port number with the -p flag (default is 7007).
+
+**7. Start fuzzing!**
 If everything works as expected, we can now start AFL! Like the Kelinci server side, AFL expects a binary that takes an input file as a parameter, specified by `@@`. In our case, this is always the `interface` binary. It also expects a directory with input files from which to start fuzzing, plus an output directory.
 
 ```/path/to/afl/afl-fuzz -i in_dir -o out_dir /path/to/kelinci/fuzzerside/interface [-s servers.txt] @@```
 
 If everything works, the AFL interface will start up after a short while and you'll notice new paths being discovered. For additional monitoring, have a look at the output directory. The input files in the 'queue' subdirectory all trigger different program behaviors. There are also 'crashes' and 'hangs' subdirectories that contain inputs that resulted in a crash or a time-out. Please see the AFL website for more details: http://lcamtuf.coredump.cx/afl/
+
+### Note on parallelization ###
+
+The Java side is naturally parallelizable. Simply start an instance for every core you want to execute your Java runs on. This can be on the same machine (but different ports!) or on multiple machines.
+
+For details on how to run AFL in parallel, please see the `parallel_fuzzing.txt` document that comes with it. You'll want to have as many afl-fuzz processes running as there are Java side Kelinci components, where each afl-fuzz process connects to a different Kelinci server. The Kelinci server to connect to can be specified using the `-s <server>` and `-p <port>` flags for `interface.c`.
 
 ### Developer ###
 

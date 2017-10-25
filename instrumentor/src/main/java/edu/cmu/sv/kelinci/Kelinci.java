@@ -43,8 +43,8 @@ class Kelinci {
 	public static final byte STATUS_COMM_ERROR = 4;
 	public static final byte STATUS_DONE = 5;
 
-	public static final int DEFAULT_TIMEOUT = 300000; // in milliseconds
-	private static int timeout;
+	public static final long DEFAULT_TIMEOUT = 300000L; // in milliseconds
+	private static long timeout;
 	
 	public static final int DEFAULT_VERBOSITY = 2;
 	private static int verbosity;
@@ -108,35 +108,45 @@ class Kelinci {
 			System.exit(1);
 		}
 	}
-
+	
 	/**
-	 * Writes the provided input to a file, then calls main()
-	 * Replaces @@ by the tmp file name.
-	 * 
-	 * @param input
+	 * Calls main() with the provided file name,replaces @@ by the file name.
 	 */
-	private static long runApplication(byte input[]) {
+	private static long runApplication(String filename) {
 		Mem.clear();
 		long runtime = -1L;
-		try (FileOutputStream stream = new FileOutputStream(tmpfile)) {			
-			stream.write(input);
-			stream.close();
-			String[] args = Arrays.copyOf(targetArgs, targetArgs.length);
-			for (int i = 0; i < args.length; i++) {
-				if (args[i].equals("@@")) {
-					args[i] = tmpfile.getAbsolutePath();
-				}
+
+		String[] args = Arrays.copyOf(targetArgs, targetArgs.length);
+		for (int i = 0; i < args.length; i++) {
+			if (args[i].equals("@@")) {
+				args[i] = filename;
 			}
-			long pre = System.nanoTime();
+		}
+		long pre = System.nanoTime();
+		try {
 			targetMain.invoke(null, (Object) args);
-			runtime = System.nanoTime() - pre;
-		} catch (IOException ioe) {
-			throw new RuntimeException("Error writing to tmp file");
 		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			e.printStackTrace();
 			throw new RuntimeException("Error invoking target main method");
 		}
+		runtime = System.nanoTime() - pre;
 		return runtime;
+	}
+
+	/**
+	 * Writes the provided input to a file, then calls main().
+	 * Replaces @@ by the tmp file name.
+	 * 
+	 * @param input The file contents as a byte array.
+	 */
+	private static long runApplication(byte input[]) {
+		try (FileOutputStream stream = new FileOutputStream(tmpfile)) {			
+			stream.write(input);
+			stream.close();
+			return runApplication(tmpfile.getAbsolutePath());
+		} catch (IOException ioe) {
+			throw new RuntimeException("Error writing to tmp file");
+		}
 	}
 
 	/**
@@ -294,7 +304,7 @@ class Kelinci {
 				verbosity = Integer.parseInt(args[curArg+1]);
 				curArg += 2;
 			} else if (args[curArg].equals("-t") || args[curArg].equals("-timeout")) {
-				timeout = Integer.parseInt(args[curArg+1]);
+				timeout = Long.parseLong(args[curArg+1]);
 				curArg += 2;
 			} else {
 				break;
