@@ -35,6 +35,9 @@
 #define DEFAULT_SERVER "localhost"
 #define DEFAULT_PORT "7007"
 
+#define DEFAULT_MODE 0
+#define LOCAL_MODE 1
+
 uint8_t* trace_bits;
 int prev_location = 0;
 
@@ -42,7 +45,7 @@ int prev_location = 0;
 FILE* logfile;
 
 /* Running inside AFL or standalone */
-int in_afl = 0;
+uint8_t in_afl = 0;
 
 #define OUTPUT_STDOUT
 //#define OUTPUT_FILE
@@ -144,10 +147,14 @@ int main(int argc, char** argv) {
   if (curArg != argc-1)
     printUsageAndDie();
   filename = argv[curArg];
-
-  LOG("server = %s\n", server);
-  LOG("port = %s\n", port);
   LOG("input file = %s\n", filename);
+
+  /* Local mode? */
+  uint8_t mode = DEFAULT_MODE;
+  if (strcmp(server, "localhost") == 0) {
+    LOG("Running in LOCAL MODE.\n");
+    mode = LOCAL_MODE;
+  }
 
   /* Preamble instrumentation */
   char* shmname = getenv(SHM_ENV_VAR);
@@ -214,7 +221,6 @@ int main(int argc, char** argv) {
   }
 
   /* Done with initialization, now let's start the wrapper! */
-  /* send contents of file over TCP */
   int try = 0;
   size_t nread;
   char buf[FILE_READ_CHUNK];
@@ -228,31 +234,61 @@ int main(int argc, char** argv) {
       usleep(100000);
 
     setup_tcp_connection(server, port);
-    file = fopen(filename, "r");
-    if (file) {
-      // get file size and send
-      fseek(file, 0L, SEEK_END);
-      int filesize = ftell(file);
-      rewind(file);
-      LOG("Sending file size %d\n", filesize);
-      if (write(tcp_socket, &filesize, 4) != 4) {
-	DIE("Error sending filesize");
-      }
 
-      // send file contents
-      size_t total_sent = 0;
-      while ((nread = fread(buf, 1, sizeof buf, file)) > 0) {
-        //fwrite(buf, 1, nread, stdout);
-        if (ferror(file)) {
-          DIE("Error reading from file\n");
-        }
-        ssize_t sent = write(tcp_socket, buf, nread);
-	total_sent += sent;
-        LOG("Sent %lu bytes of %lu\n", total_sent, filesize);
+    /* Send mode */
+    write(tcp_socket, &mode, 1);
+
+    /* LOCAL MODE */
+    if (mode == LOCAL_MODE) {
+
+      // get absolute path
+      char path[10000];
+      realpath(filename, path);
+
+      // send path length
+      int pathlen = strlen(path);
+      if (write(tcp_socket, &pathlen, 4) != 4) {
+        DIE("Error sending path length");
       }
-      fclose(file);
+      LOG("Sent path length: %d\n", pathlen);
+
+      // send path
+      if (write(tcp_socket, path, pathlen) != pathlen) {
+        DIE("Error sending path");
+      }
+      LOG("Sent path: %s\n", path);
+
+    
+    /* DEFAULT MODE */
     } else {
-      DIE("Error reading file %s\n", filename);
+
+      /* Send file contents */
+      file = fopen(filename, "r");
+      if (file) {
+
+        // get file size and send
+        fseek(file, 0L, SEEK_END);
+        int filesize = ftell(file);
+        rewind(file);
+        LOG("Sending file size %d\n", filesize);
+        if (write(tcp_socket, &filesize, 4) != 4) {
+          DIE("Error sending filesize");
+        }
+
+        // send file bytes
+        size_t total_sent = 0;
+        while ((nread = fread(buf, 1, sizeof buf, file)) > 0) {
+          if (ferror(file)) {
+            DIE("Error reading from file\n");
+          }
+          ssize_t sent = write(tcp_socket, buf, nread);
+          total_sent += sent;
+          LOG("Sent %lu bytes of %lu\n", total_sent, filesize);
+        }
+        fclose(file);
+      } else {
+        DIE("Error reading file %s\n", filename);
+      }
     }
 
     /* Read status over TCP */
