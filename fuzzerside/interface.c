@@ -158,7 +158,8 @@ int main(int argc, char** argv) {
 
   /* Preamble instrumentation */
   char* shmname = getenv(SHM_ENV_VAR);
-  int status;
+  int status = 0;
+  uint8_t kelinci_status = STATUS_SUCCESS;
   if (shmname) {
 
     /* Running in AFL */
@@ -291,22 +292,22 @@ int main(int argc, char** argv) {
       }
     }
 
-    /* Read status over TCP */
-    nread = read(tcp_socket, &status, 1);
+    /* Read kelinci_status over TCP */
+    nread = read(tcp_socket, &kelinci_status, 1);
     if (nread != 1) {
       LOG("Failure reading exit status over socket.\n");
-      status = STATUS_COMM_ERROR;
+      kelinci_status = STATUS_COMM_ERROR;
       goto cont;
     }
-    LOG("Return status = %d\n", status);
+    LOG("Return kelinci_status = %d\n", status);
   
     /* Read "shared memory" over TCP */
-    uint8_t shared_mem[SHM_SIZE];
+    uint8_t *shared_mem = malloc(SHM_SIZE);
     for (int offset = 0; offset < SHM_SIZE; offset += SOCKET_READ_CHUNK) {
       nread = read(tcp_socket, shared_mem+offset, SOCKET_READ_CHUNK);
       if (nread != SOCKET_READ_CHUNK) {
 	LOG("Error reading from socket\n");
-	status = STATUS_COMM_ERROR;
+	kelinci_status = STATUS_COMM_ERROR;
 	goto cont;
       }
     }
@@ -328,7 +329,7 @@ cont: close(tcp_socket);
       DIE("Stopped trying to communicate with server.\n");
     }
 
-  } while (status == STATUS_QUEUE_FULL || status == STATUS_COMM_ERROR);
+  } while (kelinci_status == STATUS_QUEUE_FULL || kelinci_status == STATUS_COMM_ERROR);
     
   LOG("Received results. Terminating.\n\n");
 
@@ -338,7 +339,7 @@ cont: close(tcp_socket);
   }
 
   /* Terminate with CRASH signal if Java program terminated abnormally */
-  if (status == STATUS_CRASH) {
+  if (kelinci_status == STATUS_CRASH) {
     LOG("Crashing...\n");
     abort();
   }
@@ -348,7 +349,7 @@ cont: close(tcp_socket);
    * In a good set-up, the time-out on the JAVA process is slightly longer
    * than AFLs time-out to prevent hitting this.
    **/
-  if (status == STATUS_TIMEOUT) {
+  if (kelinci_status == STATUS_TIMEOUT) {
     LOG("Starting infinite loop...\n");
     while (1) {
       sleep(10);

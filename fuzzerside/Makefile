@@ -1,5 +1,5 @@
 all:
-	gcc -o interface interface.c
+	gcc -std=gnu99 -o interface interface.c
 
 clean:
 	rm -rf interface
