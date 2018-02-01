@@ -23,7 +23,7 @@ expected format. To build, run `make` in the 'fuzzerside' subdirectory.
 The second component is on the JAVA side. It is found in the 'instrumentor' subdirectory.
 This component instruments a target application with AFL style administration, plus a component to communicate
 with the C side. When later executing the instrumented program, this sets up a TCP server and runs the target 
-application in a separate thread for each incoming request. It sends back an exit code (succes, timeout, crash 
+application in a separate thread for each incoming request. It sends back an exit code (success, timeout, crash 
 or queue full), plus the gathered path information. Any exception escaping main is considered a crash.
 To build, run `gradle build` in the 'instrumentor' subdirectory. 
 
