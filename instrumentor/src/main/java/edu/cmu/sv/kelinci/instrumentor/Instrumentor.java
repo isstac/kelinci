@@ -64,7 +64,11 @@ public class Instrumentor {
 				byte[] bytes = cw.toByteArray();
 				writeClass(cls, bytes);
 			} catch (RuntimeException rte) {
-				if (rte.getMessage().contains("JSR/RET")) {
+				/**
+				 * Used to throw the exception in certain cases, however, in practice this resulted in various instrumentation of .jars
+                 * being aborted. It is the more sane choice to simply take the class non-instrumented, but warn the user 
+				 */
+				//if (rte.getMessage().contains("JSR/RET")) {
 					/**
 					 * This is an exception related to a particular construct in the bytecode that
 					 * is not supported by ASM. It is deprecated and should not be present in bytecode
@@ -76,9 +80,9 @@ public class Instrumentor {
 					// include original, uninstrumented class in output
 					loadAndWriteResource(cls);
 					skipped.add(cls);
-				} else {
+                /*} else {
 					throw rte;
-				}
+				}*/
 			}
 			
 		}
