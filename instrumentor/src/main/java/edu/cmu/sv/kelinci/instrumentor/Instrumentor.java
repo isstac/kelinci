@@ -63,7 +63,7 @@ public class Instrumentor {
 				cr.accept(ct, 0);
 				byte[] bytes = cw.toByteArray();
 				writeClass(cls, bytes);
-			} catch (RuntimeException rte) {
+			} catch (RuntimeException|NoClassDefFoundError rte) {
 				/**
 				 * Used to throw the exception in certain cases, however, in practice this resulted in various instrumentation of .jars
                  * being aborted. It is the more sane choice to simply take the class non-instrumented, but warn the user 
