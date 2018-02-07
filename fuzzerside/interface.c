@@ -15,7 +15,7 @@
 
 #define FILE_READ_CHUNK 1024
 #define SHM_SIZE 65536
-#define SOCKET_READ_CHUNK 1024 // SHM_SIZE should be divisable by this
+#define SOCKET_READ_CHUNK 1024 // SHM_SIZE should be divisible by this
 
 #define SHM_ENV_VAR "__AFL_SHM_ID"
 
@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
 	port = argv[curArg+1];
 	curArg += 2;
       } else {
-        LOG("Unkown flag: %s\n", argv[curArg]);
+        LOG("Unknown flag: %s\n", argv[curArg]);
 	printUsageAndDie();
       }
     } else {
