@@ -34,14 +34,21 @@ echo "hello" > in_dir/example
 
 9. Test binary (should print "Done.")
 java -cp bin-instrumented:commons-imaging-1.0-instrumented.jar driver.Driver in_dir/example
+and with security policy:
+java -Djava.security.manager -Djava.security.policy=java-security-policy.txt -cp bin-instrumented:commons-imaging-1.0-instrumented.jar driver.Driver in_dir/example
 
 10. Start Kelinci server
+First try if no error with:
 java -cp bin-instrumented:commons-imaging-1.0-instrumented.jar edu.cmu.sv.kelinci.Kelinci driver.Driver @@
+then actually run with security policy:
+java -Djava.security.manager -Djava.security.policy=java-security-policy.txt -cp bin-instrumented:commons-imaging-1.0-instrumented.jar edu.cmu.sv.kelinci.Kelinci driver.Driver @@
 
 11. Test interface (should send file to server, then receive results, then print "Terminating normally.")
 ../../fuzzerside/interface in_dir/example
 
 12. Run AFL
 afl-fuzz -i in_dir -o out_dir ../../fuzzerside/interface @@
+
+13. Check on the Kelinci server if it is still alive, in this case the security policy was adopted to the target (commons-imaging). If the target is different, you might need to adopt the security policy.
 
 Keep an eye on the output directory. In particular, the 'queue' subdirectory will contain input files triggering new behaviors. One may want to have a look at them with e.g. hexdump. After a while, AFL should identify a new path, due to finding the correct first byte of a JPEG header (0xFF). Later, it will identify the second byte of the header (0xD8). At some point it will find the described bug. In our experiment, it took about 35 minutes.
