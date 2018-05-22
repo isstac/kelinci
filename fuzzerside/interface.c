@@ -8,20 +8,20 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#include <sys/types.h> 
-#include <sys/ipc.h> 
-#include <sys/shm.h> 
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <sys/wait.h>
 
 #define FILE_READ_CHUNK 1024
 #define SHM_SIZE 65536
-#define SOCKET_READ_CHUNK 1024 // SHM_SIZE should be divisible by this
+#define SOCKET_READ_CHUNK 1024 // SHM_SIZE should be divisable by this
 
 #define SHM_ENV_VAR "__AFL_SHM_ID"
 
 #define LOGFILE "/tmp/afl-wrapper.log"
 
-#define VERBOSE 
+#define VERBOSE
 
 #define STATUS_SUCCESS 0
 #define STATUS_TIMEOUT 1
@@ -69,7 +69,7 @@ void LOG(const char* format, ...) {
 #ifdef VERBOSE
   #define LOGIFVERBOSE(...) LOG(__VA_ARGS__);
 #else
-  #define LOGIFVERBOSE(...) 
+  #define LOGIFVERBOSE(...)
 #endif
 
 int tcp_socket;
@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
 	port = argv[curArg+1];
 	curArg += 2;
       } else {
-        LOG("Unknown flag: %s\n", argv[curArg]);
+        LOG("Unkown flag: %s\n", argv[curArg]);
 	printUsageAndDie();
       }
     } else {
@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
 
     /* Running in AFL */
     in_afl = 1;
-	  
+
     /* Set up shared memory region */
     LOG("SHM_ID: %s\n", shmname);
     key_t key = atoi(shmname);
@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
 
       LOGIFVERBOSE("Child PID: %d\n", child_pid);
       write(199, &child_pid, 4);
-      
+
       LOGIFVERBOSE("Status %d \n", status);
 
       if(waitpid(child_pid, &status, 0) <= 0) {
@@ -218,7 +218,7 @@ int main(int argc, char** argv) {
 
   } else {
     LOG("Not running within AFL. Shared memory and fork server not set up.\n");
-    trace_bits = (uint8_t*) malloc(SHM_SIZE);
+    trace_bits = (uint8_t*) malloc(SHM_SIZE+24); // +24 for resource results
   }
 
   /* Done with initialization, now let's start the wrapper! */
@@ -259,7 +259,7 @@ int main(int argc, char** argv) {
       }
       LOG("Sent path: %s\n", path);
 
-    
+
     /* DEFAULT MODE */
     } else {
 
@@ -300,7 +300,7 @@ int main(int argc, char** argv) {
       goto cont;
     }
     LOG("Return kelinci_status = %d\n", status);
-  
+
     /* Read "shared memory" over TCP */
     uint8_t *shared_mem = malloc(SHM_SIZE);
     for (int offset = 0; offset < SHM_SIZE; offset += SOCKET_READ_CHUNK) {
@@ -320,6 +320,53 @@ int main(int argc, char** argv) {
       }
     }
 
+    /* Receive runtime */
+    long runtime;
+    nread = read(tcp_socket, &runtime, 8);
+    if (nread != 8) {
+      LOG("Failed to read runtime\n");
+      status = STATUS_COMM_ERROR;
+      goto cont;
+    }
+    LOG("Runtime: %ld\n", runtime);
+
+    /* Receive max heap */
+    long max_heap;
+    nread = read(tcp_socket, &max_heap, 8);
+    if (nread != 8) {
+      LOG("Failed to read max_heap\n");
+      status = STATUS_COMM_ERROR;
+      goto cont;
+    }
+    LOG("Max heap: %ld\n", max_heap);
+
+    /* Receive num jumps */
+    long num_jumps;
+    nread = read(tcp_socket, &num_jumps, 8);
+    if (nread != 8) {
+      LOG("Failed to read num_jumps\n");
+      status = STATUS_COMM_ERROR;
+      goto cont;
+    }
+    LOG("Num jumps: %ld\n", num_jumps);
+
+    /* YN: Receive user-defined cost */
+    long user_defined_cost;
+    nread = read(tcp_socket, &user_defined_cost, 8);
+    if (nread != 8) {
+      LOG("Failed to read user_defined_cost\n");
+      status = STATUS_COMM_ERROR;
+      goto cont;
+    }
+    LOG("User-defined cost: %ld\n", user_defined_cost);
+
+    /* Copy resource results to shared memory */
+    memcpy(&trace_bits[SHM_SIZE], &runtime, 8);
+    memcpy(&trace_bits[SHM_SIZE+8], &max_heap, 8);
+    memcpy(&trace_bits[SHM_SIZE+16], &num_jumps, 8);
+    /* YN: copy user-defined cost as well to shared memory */
+    memcpy(&trace_bits[SHM_SIZE+24], &user_defined_cost, 8);
+
     /* Close socket */
 cont: close(tcp_socket);
 
@@ -330,7 +377,7 @@ cont: close(tcp_socket);
     }
 
   } while (kelinci_status == STATUS_QUEUE_FULL || kelinci_status == STATUS_COMM_ERROR);
-    
+
   LOG("Received results. Terminating.\n\n");
 
   /* Disconnect shared memory */
@@ -360,4 +407,3 @@ cont: close(tcp_socket);
 
   return 0;
 }
-

@@ -16,7 +16,12 @@ import org.kohsuke.args4j.Option;
  * Currently -i and -o flags to specify input and output, respectively,
  * and -threads to specify the number of runner threads.
  * 
+ * YN: Additionally -mode specifies the instrumentation mode, e.g.
+ * instrument all "jump" instructions or all "labels".
+ * 
  * @author rodykers
+ * 
+ * Modified by Yannic Noller (YN), May 22, 2018
  *
  */
 public class Options {
@@ -85,7 +90,7 @@ public class Options {
 		}
 	}
 	
-	@Option(name = "-o", usage = "Specificy output file/dir", required = true)
+	@Option(name = "-o", usage = "Specify output file/dir", required = true)
 	private String output;
 	
 	public String getOutput() {
@@ -99,6 +104,22 @@ public class Options {
 		return output.endsWith(".jar");
 	}
 	
+	@Option(name = "-skipmain", usage = "Don't instrument main", required = false)
+	private boolean skipmain;
+	
+	public boolean skipMain() {
+		return skipmain;
+	}
+	
+	/*YN: instrumentation mode*/
+	public enum InstrumentationMode {JUMPS, LABELS}; 
+	
+	@Option(name = "-mode", usage = "Specify instrumentation mode (jumps, labels)", required = false)
+    private InstrumentationMode instrumentationMode = InstrumentationMode.JUMPS;
+    
+    public InstrumentationMode getInstrumentationMode() {
+        return instrumentationMode;
+    }
 	
 	/**
 	 * Singleton

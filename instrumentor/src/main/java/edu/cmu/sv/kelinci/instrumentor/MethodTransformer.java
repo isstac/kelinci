@@ -5,6 +5,7 @@ import static org.objectweb.asm.Opcodes.*;
 import org.objectweb.asm.Label;
 
 import edu.cmu.sv.kelinci.Mem;
+import edu.cmu.sv.kelinci.instrumentor.Options.InstrumentationMode;
 
 import java.util.HashSet;
 import java.util.Random;
@@ -74,6 +75,14 @@ public class MethodTransformer extends MethodVisitor {
 		mv.visitIntInsn(SIPUSH, (id >> 1));
 		mv.visitFieldInsn(PUTSTATIC, "edu/cmu/sv/kelinci/Mem", "prev_location", "I");
 	}
+	
+    private void instrumentForCounting() {
+        // RK: experimental
+        mv.visitFieldInsn(GETSTATIC, "edu/cmu/sv/kelinci/Mem", "jumps", "J");
+        mv.visitInsn(LCONST_1);
+        mv.visitInsn(LADD);
+        mv.visitFieldInsn(PUTSTATIC, "edu/cmu/sv/kelinci/Mem", "jumps", "J");
+    }
 
 	@Override
 	public void visitCode() {
@@ -83,6 +92,7 @@ public class MethodTransformer extends MethodVisitor {
 		 *  Add instrumentation at start of method.
 		 */
 		instrumentLocation();
+		instrumentForCounting();
 	}
 	
 	@Override
@@ -93,7 +103,10 @@ public class MethodTransformer extends MethodVisitor {
 		 *  Add instrumentation after the jump.
 		 *  Instrumentation for the if-branch is handled by visitLabel().
 		 */
-		instrumentLocation();
+		if (Options.v().getInstrumentationMode().equals(InstrumentationMode.JUMPS)) {
+		    instrumentLocation();
+		    instrumentForCounting();
+        }
 	}
 	
 	@Override
@@ -104,5 +117,6 @@ public class MethodTransformer extends MethodVisitor {
 		 * Since there is a label, we most probably (surely?) jump to this location. Instrument.
 		 */
 		instrumentLocation();
+		instrumentForCounting();
 	}
 }

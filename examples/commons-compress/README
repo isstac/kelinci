@@ -1,0 +1,37 @@
+
+Steps to run this example:
+
+1. Download Apache Commons Compress 1.4
+wget http://archive.apache.org/dist/commons/compress/binaries/commons-compress-1.4-bin.tar.gz
+
+2. Unpack
+tar -xzvf commons-compress-1.4-bin.tar.gz
+
+3. Instrument Commons Compress (may take a few minutes)
+java -cp ../../instrumentor/build/libs/kelinci.jar edu.cmu.sv.kelinci.instrumentor.Instrumentor -i commons-compress-1.4/commons-compress-1.4.jar -o ./commons-compress-1.4-instrumented.jar
+
+4. Compile driver
+mkdir bin
+javac -cp commons-compress-1.4-instrumented.jar src/*.java -d bin
+
+5. Instrument driver (note -skipmain flag)
+java -cp ../../instrumentor/build/libs/kelinci.jar:commons-compress-1.4-instrumented.jar edu.cmu.sv.kelinci.instrumentor.Instrumentor -i bin -o bin-instrumented -skipmain
+
+6. Create input directory.
+mkdir in_dir
+
+7. Create file in input directory
+echo "hello" > in_dir/example
+
+8. Test binary (should print "Done.")
+java -cp bin-instrumented:commons-compress-1.4-instrumented.jar driver.Driver in_dir/example
+
+9. Start Kelinci server
+java -cp bin-instrumented:commons-compress-1.4-instrumented.jar edu.cmu.sv.kelinci.Kelinci -t 999999999 driver.Driver @@
+
+10. Test interface (should send file to server, then receive results, then print "Terminating normally.")
+../../fuzzerside/interface in_dir/example
+
+12. Run AFL
+/path/to/afl-wca/afl-fuzz -i in_dir -o out_dir -t 999999999 -d -c jumps ../../fuzzerside/interface @@
+

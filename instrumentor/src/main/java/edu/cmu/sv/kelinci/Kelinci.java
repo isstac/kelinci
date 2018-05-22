@@ -20,15 +20,18 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
  * 
  * @author rodykers
+ * 
+ * added user-defined cost: Yannic Noller <nolleryc@gmail.com> - YN
  *
  */
-class Kelinci {
+public class Kelinci {
 
 	private static final int maxQueue = 10;
 	private static Queue<FuzzRequest> requestQueue = new ConcurrentLinkedQueue<>();
@@ -56,6 +59,14 @@ class Kelinci {
 	private static String targetArgs[];
 
 	private static File tmpfile;
+	
+	/* YN: added user-defined score, value should be in integer range and positive*/
+	private static long userDefinedCost = 0;
+	public static void addCost (long cost) {
+	    if (cost > 0) {
+	        userDefinedCost += cost;
+	    }
+	}
 
 	private static class FuzzRequest {
 		Socket clientSocket;
@@ -114,6 +125,9 @@ class Kelinci {
 	 */
 	private static long runApplication(String filename) {
 		long runtime = -1L;
+		
+		/* YN: reset user-defined cost before run */
+		userDefinedCost = 0;
 
 		String[] args = Arrays.copyOf(targetArgs, targetArgs.length);
 		for (int i = 0; i < args.length; i++) {
@@ -121,6 +135,12 @@ class Kelinci {
 				args[i] = filename;
 			}
 		}
+		
+		// force garbage collect
+		System.gc();
+		System.gc();
+		System.gc();
+		
 		long pre = System.nanoTime();
 		try {
 			targetMain.invoke(null, (Object) args);
@@ -171,6 +191,17 @@ class Kelinci {
 			return runApplication(input);
 		}
 	}
+	
+	/**
+	 * Memory analysis
+	 */
+	static long max_heap = 0L;
+
+	public static void measureMemory() {
+		long heapSize = Runtime.getRuntime().totalMemory();
+		if (heapSize > max_heap)
+			max_heap = heapSize;
+	}
 
 	/**
 	 * Method to run in a thread handling one request from the queue at a time.
@@ -194,6 +225,8 @@ class Kelinci {
 
 					Mem.clear();
 					byte result = STATUS_CRASH;
+					long runtime = -1L;
+					max_heap = 0L;
 					ApplicationCall appCall = null;
 
 					// read the mode (local or default)
@@ -280,7 +313,7 @@ class Kelinci {
 						try {
 							if (verbosity > 1)
 								System.out.println("Started...");
-							future.get(timeout, TimeUnit.MILLISECONDS);
+							runtime = future.get(timeout, TimeUnit.MILLISECONDS);
 							result = STATUS_SUCCESS;
 							if (verbosity > 1)
 								System.out.println("Finished!");
@@ -317,7 +350,42 @@ class Kelinci {
 
 					// send back "shared memory" over TCP
 					os.write(Mem.mem, 0, Mem.mem.length);
-
+					
+					// send back runtime
+					if (verbosity > 1)
+						System.out.println("Sending runtime: " + runtime);
+					byte bs[] = new byte[8];
+					for (int i = 0; i < 8; i++) {
+						bs[i] = (byte) ((runtime >> i * 8) & 255);
+					}
+					os.write(bs, 0, 8);
+					
+					// send back max_heap
+					if (verbosity > 1)
+						System.out.println("Sending max heap: " + max_heap);
+					for (int i = 0; i < 8; i++) {
+						bs[i] = (byte) ((max_heap >> i * 8) & 255);
+					}
+					os.write(bs, 0, 8);
+					
+					// send back number of jumps
+					long jumps = Mem.jumps;
+					if (verbosity > 1)
+						System.out.println("Sending jumps: " + jumps);
+					for (int i = 0; i < 8; i++) {
+						bs[i] = (byte) ((jumps >> i * 8) & 255);
+					}
+					os.write(bs, 0, 8);
+					
+					// YN: send back user-defined cost
+					if (verbosity > 1)
+                        System.out.println("Sending user-defined cost: " + userDefinedCost);
+					for (int i = 0; i < 8; i++) {
+                        bs[i] = (byte) ((userDefinedCost >> i * 8) & 255);
+                    }
+                    os.write(bs, 0, 8); 
+					
+					
 					// close connection
 					os.flush();
 					request.clientSocket.shutdownOutput();
@@ -423,6 +491,18 @@ class Kelinci {
 		} catch (IOException ioe) {
 			throw new RuntimeException("Error creating tmp file");
 		}
+		
+		/**
+		 * Start a intervalled thread in which to poll memory usage. Used for measuring
+		 * memory consumption.
+		 */
+		final ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor();
+		ses.scheduleWithFixedDelay(new Runnable() {
+			@Override
+			public void run() {
+				measureMemory();
+			}
+		}, 0, 10, TimeUnit.MILLISECONDS);
 
 		/**
 		 * Start the server thread

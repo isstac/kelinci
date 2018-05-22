@@ -14,6 +14,7 @@ public class Mem {
 	public static final int SIZE = 65536;
 	public static byte mem[] = new byte[SIZE];
 	public static int prev_location = 0;
+	public static long jumps = 0;
 	
 	/**
 	 * Clears the current measurements.
@@ -21,6 +22,7 @@ public class Mem {
 	public static void clear() {
 		for (int i = 0; i < SIZE; i++)
 			mem[i] = 0;
+		jumps = 0L;
 	}
 	
 	/**

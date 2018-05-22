@@ -19,7 +19,7 @@ public class ClassTransformer extends ClassVisitor {
 			String desc, String signature, String[] exceptions) {
 		MethodVisitor mv;
 		mv = cv.visitMethod(access, name, desc, signature, exceptions);
-		if (mv != null) {
+		if (mv != null && !(Options.v().skipMain() && name.equals("main"))) {
 			mv = new MethodTransformer(mv);
 		}
 		return mv;

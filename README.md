@@ -2,9 +2,21 @@
 
 Interface to run AFL on Java programs.
 
-Kelinci means rabbit in Indonesian (the language spoken on Java). 
+Kelinci means rabbit in Indonesian (the language spoken on Java).
 
-This README assumes that AFL has been previously installed. For information on how to install and use AFL, please see <http://lcamtuf.coredump.cx/afl/>. Kelinci has been tested successfully with AFL versions 2.44 and newer. The README explains how to use the tool. For technical background, please see the CCS'17 paper in the 'docs' directory. 
+***
+### IMPORTANT ###
+
+*This is the Kelinci-WCA version. The difference with standard Kelinci is that this version prioritizes costly paths. Time and memory consumption are measured on the Java side, sent back to the interface and then the special version of AFL also contained in this repo prioritizes paths that are more costly.*
+
+*When you use this, make sure that all the components are those from this repo: instrumentor (re-instrument code!), interface.c and afl-fuzz. An extra flag for afl-fuzz allows to specify which resource to maximize: jumps, time or memory (with `-c jumps`, `-c time` or `-c memory`, respectively), make sure you set it. The `jumps` cost model counts branches using instrumentation and works best. The `time` cost model measures runtime but is too imprecise to direct fuzzing. Timing measurements can be useful later though, when studying results. The `memory` cost model measures heap usage and should in time be replaced by instrumentation as well. For slow running targets (like ours) it is recommended to use the -d flag with AFL, which skips deterministic fuzzing. Finally, make sure you use the -t flag for both afl-fuzz and the Kelinci server to set the time-out to something high enough, as time needed for processing input files will be increasing.*
+
+*New: user-defined cost model. Usage: `-c userdefined`. Call `Kelinci.addCost(long)` directly in your code, where the parameter should be a positive long value. [Yannic Noller (nolleryc@gmail.com) - YN]*
+
+*In addition to the standard AFL output, this version outputs a file path-costs.csv, which stores the costs for all inputs in the queue, crashes and hangs folders. Inputs that set a new record resource consumption are marked with `highscore` in the file name. If working correctly, one should notice resource usage increasing over time. Additionally, the current lowscore and highscore are listed on the last row, last 2 columns of the plot data file.*
+***
+
+This README assumes that AFL has been previously installed. For information on how to install and use AFL, please see <http://lcamtuf.coredump.cx/afl/>. Kelinci has been tested successfully with AFL versions 2.44 and newer. The README explains how to use the tool. For technical background, please see the CCS'17 paper in the 'docs' directory.
 
 Several examples are provided in the 'examples' directory, where each comes with a README specifying the exact steps to take in order to repeat the experiment.
 
@@ -22,10 +34,10 @@ expected format. To build, run `make` in the 'fuzzerside' subdirectory.
 
 The second component is on the JAVA side. It is found in the 'instrumentor' subdirectory.
 This component instruments a target application with AFL style administration, plus a component to communicate
-with the C side. When later executing the instrumented program, this sets up a TCP server and runs the target 
-application in a separate thread for each incoming request. It sends back an exit code (success, timeout, crash 
+with the C side. When later executing the instrumented program, this sets up a TCP server and runs the target
+application in a separate thread for each incoming request. It sends back an exit code (succes, timeout, crash
 or queue full), plus the gathered path information. Any exception escaping main is considered a crash.
-To build, run `gradle build` in the 'instrumentor' subdirectory. 
+To build, run `gradle build` in the 'instrumentor' subdirectory.
 
 ### Usage ###
 
