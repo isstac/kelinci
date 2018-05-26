@@ -43,7 +43,7 @@ public class MethodTransformer extends MethodVisitor {
 		int id;
 		int tries = 0;
 		do {
-			id = r.nextInt(Mem.SIZE);
+			id = r.nextInt(Mem.BUFFER_SIZE);
 			tries++;
 		} while (tries <= 10 && ids.contains(id));
 		ids.add(id);

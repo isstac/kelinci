@@ -48,7 +48,7 @@ FILE* logfile;
 uint8_t in_afl = 0;
 
 #define OUTPUT_STDOUT
-//#define OUTPUT_FILE
+#define OUTPUT_FILE
 
 void LOG(const char* format, ...) {
   va_list args;
@@ -57,8 +57,13 @@ void LOG(const char* format, ...) {
     vprintf(format, args);
 #endif
 #ifdef OUTPUT_FILE
+    char message[150], *ptr = message;
+    ptr += sprintf(message, "[%d] ", getpid());
+
     va_start(args, format);
-    vfprintf(logfile, format, args);
+    vsprintf(ptr, format, args);
+    fprintf(logfile, "%s", message);
+//    vfprintf(logfile, format, args);
 #endif
   va_end(args);
 }
@@ -130,15 +135,15 @@ int main(int argc, char** argv) {
     if (argv[curArg][0] == '-') { //flag
       if (argv[curArg][1] == 's') {
         // set server
-	server = argv[curArg+1];
-	curArg += 2;
+  server = argv[curArg+1];
+  curArg += 2;
       } else if (argv[curArg][1] == 'p') {
         // set port
-	port = argv[curArg+1];
-	curArg += 2;
+  port = argv[curArg+1];
+  curArg += 2;
       } else {
         LOG("Unkown flag: %s\n", argv[curArg]);
-	printUsageAndDie();
+  printUsageAndDie();
       }
     } else {
       break; // expect filename now
@@ -192,7 +197,7 @@ int main(int argc, char** argv) {
         DIE("Fork failed\n");
       } else if (child_pid == 0) {
         LOGIFVERBOSE("Child process, continue after pork server loop\n");
-	break;
+  break;
       }
 
       LOGIFVERBOSE("Child PID: %d\n", child_pid);
@@ -303,13 +308,24 @@ int main(int argc, char** argv) {
 
     /* Read "shared memory" over TCP */
     uint8_t *shared_mem = malloc(SHM_SIZE);
-    for (int offset = 0; offset < SHM_SIZE; offset += SOCKET_READ_CHUNK) {
-      nread = read(tcp_socket, shared_mem+offset, SOCKET_READ_CHUNK);
-      if (nread != SOCKET_READ_CHUNK) {
-	LOG("Error reading from socket\n");
-	kelinci_status = STATUS_COMM_ERROR;
-	goto cont;
+//    for (int offset = 0; offset < SHM_SIZE; offset += SOCKET_READ_CHUNK) {
+//      nread = read(tcp_socket, shared_mem+offset, SOCKET_READ_CHUNK);
+//      if (nread != SOCKET_READ_CHUNK) {
+//        LOG("Error reading from socket\n");
+//        kelinci_status = STATUS_COMM_ERROR;
+//        goto cont;
+//      }
+//    }
+    int offset = 0;
+    while (offset < SHM_SIZE) {
+      nread = read(tcp_socket, shared_mem+offset, SHM_SIZE - offset);
+      if (nread <= 0) {
+        LOG("Error reading from socket. bytes read: %d\n", nread);
+        kelinci_status = STATUS_COMM_ERROR;
+        goto cont;
       }
+      offset += nread;
+      LOG("Block read: %d bytes read\n", nread);
     }
 
     /* If successful, copy over to actual shared memory */
