@@ -1,5 +1,6 @@
 package edu.cmu.sv.kelinci.instrumentor;
 
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.io.File;
 import java.io.IOException;
@@ -8,6 +9,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.stream.Stream;
 
 import org.kohsuke.args4j.Option;
 
@@ -70,9 +72,9 @@ public class Options {
 			dirprefix = input.length();
 		else
 			dirprefix = input.length()+1;
-		
-		try {
-			Files.walk(Paths.get(input)).filter(Files::isRegularFile).forEach(filePath -> {
+
+		try (Stream<Path> stream = Files.walk(Paths.get(input))) {
+			stream.filter(Files::isRegularFile).forEach(filePath -> {
 				String name = filePath.toString();
 				System.out.println("Found file " + name);
 				if (name.endsWith(".class")) {
