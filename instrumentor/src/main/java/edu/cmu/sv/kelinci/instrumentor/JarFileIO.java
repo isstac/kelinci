@@ -47,9 +47,9 @@ public class JarFileIO {
 			
 			Path tmpFile = Paths.get(tempDir.toString()+"/"+file);
 			Files.createDirectories(tmpFile.getParent());
-			OutputStream stream = Files.newOutputStream(tmpFile, StandardOpenOption.CREATE);
-			stream.write(bytes);
-			stream.close();
+			try (final OutputStream stream = Files.newOutputStream(tmpFile, StandardOpenOption.CREATE)) {
+				stream.write(bytes);
+			}
 			String command = "jar uf " + outputJar + " -C " + tempDir.toString() + " " + file;
 			Process p = Runtime.getRuntime().exec(command);
 			p.waitFor();
