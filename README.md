@@ -16,7 +16,8 @@ Kelinci means rabbit in Indonesian (the language spoken on Java).
 *In addition to the standard AFL output, this version outputs a file path-costs.csv, which stores the costs for all inputs in the queue, crashes and hangs folders. Inputs that set a new record resource consumption are marked with `highscore` in the file name. If working correctly, one should notice resource usage increasing over time. Additionally, the current lowscore and highscore are listed on the last row, last 2 columns of the plot data file.*
 ***
 
-This README assumes that AFL has been previously installed. For information on how to install and use AFL, please see <http://lcamtuf.coredump.cx/afl/>. Note: please replace the original afl-fuzz.c file with the one provided in "afl-2.51b-wca/". Kelinci has been tested successfully with AFL versions 2.44 and newer. The README explains how to use the tool. For technical background, please see the CCS'17 paper in the 'docs' directory.
+This README assumes that AFL has been previously installed. For information on how to install and use AFL, please see <http://lcamtuf.coredump.cx/afl/>. Note: please replace the original afl-fuzz.c file with the one provided in "afl-2.51b-wca/" and make sure that AFL is built using this file.
+Kelinci has been tested successfully with AFL versions 2.44 and newer. The README explains how to use the tool. For technical background, please see the CCS'17 paper in the 'docs' directory.
 
 Several examples are provided in the 'examples' directory, where each comes with a README specifying the exact steps to take in order to repeat the experiment.
 
