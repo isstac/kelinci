@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
 
   } else {
     LOG("Not running within AFL. Shared memory and fork server not set up.\n");
-    trace_bits = (uint8_t*) malloc(SHM_SIZE+24); // +24 for resource results
+    trace_bits = (uint8_t*) malloc(SHM_SIZE+24+8); // +24 for resource results +8 for user defined cost
   }
 
   /* Done with initialization, now let's start the wrapper! */
