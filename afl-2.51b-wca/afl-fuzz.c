@@ -346,11 +346,11 @@ enum {
   /* 00 */ COST_MODEL_STANDARD,
   /* 01 */ COST_MODEL_TIMING,
   /* 02 */ COST_MODEL_MEMORY,
-  /* 03 */ COST_MODEL_JUMPS,
+  /* 03 */ COST_MODEL_INSTRUMENTATION,
   /* YN: added user-defined cost model*/
   /* 04 */ COST_MODEL_USER_DEFINED
 };
-int costmodel = COST_MODEL_JUMPS; // default
+int costmodel = COST_MODEL_INSTRUMENTATION; // default
 
 /* YN: cost model optimization strategy */
 enum {
@@ -2606,12 +2606,12 @@ static void init_costs_file() {
   costs_file = fopen(path, "wb");
   if (!costs_file)
     FATAL("Failed to open costs file: %s\n", path);
-  fprintf(costs_file, "Input file%c Time%c Memory%c Jumps%c User-Defined\n", SEPARATOR, SEPARATOR, SEPARATOR, SEPARATOR);
+  fprintf(costs_file, "Input file%c Time%c Memory%c Instr.%c User-Defined\n", SEPARATOR, SEPARATOR, SEPARATOR, SEPARATOR);
 }
 
 // Append resource usage to output file.
-static void append_resource_use_to_file(u8* fname, u64 time, u64 memory, u64 jumps, u64 user_defined_cost) {
-  fprintf(costs_file, "%s%c %llu%c %llu%c %llu%c %llu\n", fname, SEPARATOR, time, SEPARATOR, memory, SEPARATOR, jumps, SEPARATOR, user_defined_cost);
+static void append_resource_use_to_file(u8* fname, u64 time, u64 memory, u64 instr_cost, u64 user_defined_cost) {
+  fprintf(costs_file, "%s%c %llu%c %llu%c %llu%c %llu\n", fname, SEPARATOR, time, SEPARATOR, memory, SEPARATOR, instr_cost, SEPARATOR, user_defined_cost);
 }
 
 /**** RK: end ****/
@@ -2734,18 +2734,18 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
 
 
   /* RK: also copy resource use here, YN: added user-defined cost */
-  u64 time, memory, jumps, user_defined_cost;
+  u64 time, memory, instr_cost, user_defined_cost;
   memcpy(&time, &trace_bits[MAP_SIZE], 8);
   memcpy(&memory, &trace_bits[MAP_SIZE+8], 8);
-  memcpy(&jumps, &trace_bits[MAP_SIZE+16], 8);
+  memcpy(&instr_cost, &trace_bits[MAP_SIZE+16], 8);
   memcpy(&user_defined_cost, &trace_bits[MAP_SIZE+24], 8);
 
   if (costmodel == COST_MODEL_TIMING) {
     q->score = time;
   } else if (costmodel == COST_MODEL_MEMORY) {
     q->score = memory;
-  } else if (costmodel == COST_MODEL_JUMPS) {
-    q->score = jumps;
+  } else if (costmodel == COST_MODEL_INSTRUMENTATION) {
+    q->score = instr_cost;
   } else if (costmodel == COST_MODEL_USER_DEFINED) { // YN: added user-defined cost
     q->score = user_defined_cost;
   } else {
@@ -2756,7 +2756,7 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
     highscore = q->score;
   if (q->score > 0 && q->score < lowscore)
     lowscore = q->score;
-  append_resource_use_to_file(q->fname, time, memory, jumps, user_defined_cost); // YN: added user-defined cost
+  append_resource_use_to_file(q->fname, time, memory, instr_cost, user_defined_cost); // YN: added user-defined cost
   /* RK: end */
 
 
@@ -3242,17 +3242,17 @@ static void write_crash_readme(void) {
 
 /* RK: check if this input leads to a (much) more costly path, YN: added user-defined cost */
 static u8 more_costly_than_highscore() {
-  u64 time, memory, jumps, user_defined_cost;
+  u64 time, memory, instr_cost, user_defined_cost;
   memcpy(&time, &trace_bits[MAP_SIZE], 8);
   memcpy(&memory, &trace_bits[MAP_SIZE+8], 8);
-  memcpy(&jumps, &trace_bits[MAP_SIZE+16], 8);
+  memcpy(&instr_cost, &trace_bits[MAP_SIZE+16], 8);
   memcpy(&user_defined_cost, &trace_bits[MAP_SIZE+24], 8);
 
   if (costmodel == COST_MODEL_TIMING && time > ((highscore * KEEP_MORE_COSTLY_PERC)/100)) {
     return 1;
   } else if (costmodel == COST_MODEL_MEMORY && memory > ((highscore * KEEP_MORE_COSTLY_PERC)/100)) {
     return 1;
-  } else if (costmodel == COST_MODEL_JUMPS && jumps > ((highscore * KEEP_MORE_COSTLY_PERC)/100)) {
+  } else if (costmodel == COST_MODEL_INSTRUMENTATION && instr_cost > ((highscore * KEEP_MORE_COSTLY_PERC)/100)) {
     return 1;
   } else if (costmodel == COST_MODEL_USER_DEFINED && user_defined_cost > ((highscore * KEEP_MORE_COSTLY_PERC)/100)) {
     return 1; // YN: added user-defined cost
@@ -3262,17 +3262,17 @@ static u8 more_costly_than_highscore() {
 
 /* YN: check if this input leads to a (much) less costly path */
 static u8 less_costly_than_lowscore() {
-  u64 time, memory, jumps, user_defined_cost;
+  u64 time, memory, instr_cost, user_defined_cost;
   memcpy(&time, &trace_bits[MAP_SIZE], 8);
   memcpy(&memory, &trace_bits[MAP_SIZE+8], 8);
-  memcpy(&jumps, &trace_bits[MAP_SIZE+16], 8);
+  memcpy(&instr_cost, &trace_bits[MAP_SIZE+16], 8);
   memcpy(&user_defined_cost, &trace_bits[MAP_SIZE+24], 8);
 
   if (costmodel == COST_MODEL_TIMING && time < ((lowscore * KEEP_LESS_COSTLY_PERC)/100)) {
     return 1;
   } else if (costmodel == COST_MODEL_MEMORY && memory < ((lowscore * KEEP_LESS_COSTLY_PERC)/100)) {
     return 1;
-  } else if (costmodel == COST_MODEL_JUMPS && jumps < ((lowscore * KEEP_LESS_COSTLY_PERC)/100)) {
+  } else if (costmodel == COST_MODEL_INSTRUMENTATION && instr_cost < ((lowscore * KEEP_LESS_COSTLY_PERC)/100)) {
     return 1;
   } else if (costmodel == COST_MODEL_USER_DEFINED && user_defined_cost < ((lowscore * KEEP_LESS_COSTLY_PERC)/100)) {
     return 1;
@@ -3282,18 +3282,18 @@ static u8 less_costly_than_lowscore() {
 
 /* RK: set lowscore if needed, YN: added user-defined cost */
 static void set_lowscore_if_needed() {
-  u64 time, memory, jumps, user_defined_cost;
+  u64 time, memory, instr_cost, user_defined_cost;
   memcpy(&time, &trace_bits[MAP_SIZE], 8);
   memcpy(&memory, &trace_bits[MAP_SIZE+8], 8);
-  memcpy(&jumps, &trace_bits[MAP_SIZE+16], 8);
+  memcpy(&instr_cost, &trace_bits[MAP_SIZE+16], 8);
   memcpy(&user_defined_cost, &trace_bits[MAP_SIZE+24], 8);
 
   if (costmodel == COST_MODEL_TIMING && time < lowscore) {
     lowscore = time;
   } else if (costmodel == COST_MODEL_MEMORY && memory < lowscore) {
     lowscore = memory;
-  } else if (costmodel == COST_MODEL_JUMPS && jumps < lowscore) {
-    lowscore = jumps;
+  } else if (costmodel == COST_MODEL_INSTRUMENTATION && instr_cost < lowscore) {
+    lowscore = instr_cost;
   } else if (costmodel == COST_MODEL_USER_DEFINED && user_defined_cost < lowscore) {
     lowscore = user_defined_cost; // YN: added user-defined cost
   }
@@ -7963,8 +7963,8 @@ int main(int argc, char** argv) {
         costmodel = COST_MODEL_TIMING;
       else if (optarg && !strcmp(optarg, "memory"))
         costmodel = COST_MODEL_MEMORY;
-      else if (optarg && !strcmp(optarg, "jumps"))
-        costmodel = COST_MODEL_JUMPS;
+      else if (optarg && !strcmp(optarg, "instrumentation"))
+        costmodel = COST_MODEL_INSTRUMENTATION;
       else if (optarg && !strcmp(optarg, "userdefined")) // YN: added user-defined cost
         costmodel = COST_MODEL_USER_DEFINED;
       else if (optarg)
@@ -8006,8 +8006,8 @@ int main(int argc, char** argv) {
     OKF("[WCA] Using timing cost model");
   else if (costmodel == COST_MODEL_MEMORY)
     OKF("[WCA] Using memory cost model");
-  else if (costmodel == COST_MODEL_JUMPS)
-    OKF("[WCA] Using num jumps cost model");
+  else if (costmodel == COST_MODEL_INSTRUMENTATION)
+    OKF("[WCA] Using instrumentation cost model");
   else if (costmodel == COST_MODEL_USER_DEFINED)
     OKF("[WCA] Using user-defined cost model"); // YN: added user-defined cost
   else

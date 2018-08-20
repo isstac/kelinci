@@ -356,15 +356,15 @@ int main(int argc, char** argv) {
     }
     LOG("Max heap: %ld\n", max_heap);
 
-    /* Receive num jumps */
-    long num_jumps;
-    nread = read(tcp_socket, &num_jumps, 8);
+    /* Receive cost measured via instrumentation. */
+    long instr_cost;
+    nread = read(tcp_socket, &instr_cost, 8);
     if (nread != 8) {
-      LOG("Failed to read num_jumps\n");
+      LOG("Failed to read instr_cost\n");
       status = STATUS_COMM_ERROR;
       goto cont;
     }
-    LOG("Num jumps: %ld\n", num_jumps);
+    LOG("Instr. cost: %ld\n", instr_cost);
 
     /* YN: Receive user-defined cost */
     long user_defined_cost;
@@ -379,7 +379,7 @@ int main(int argc, char** argv) {
     /* Copy resource results to shared memory */
     memcpy(&trace_bits[SHM_SIZE], &runtime, 8);
     memcpy(&trace_bits[SHM_SIZE+8], &max_heap, 8);
-    memcpy(&trace_bits[SHM_SIZE+16], &num_jumps, 8);
+    memcpy(&trace_bits[SHM_SIZE+16], &instr_cost, 8);
     /* YN: copy user-defined cost as well to shared memory */
     memcpy(&trace_bits[SHM_SIZE+24], &user_defined_cost, 8);
 

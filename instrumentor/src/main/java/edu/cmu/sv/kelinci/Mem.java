@@ -19,7 +19,12 @@ public class Mem {
 
     public static byte mem[] = new byte[BUFFER_SIZE+32];
     public static int prev_location = 0;
-    public static long jumps = 0;
+    
+    /**
+     * Holds the current cost measured by the configured instrumentation mode, e.g., by counting every bytecode
+     * jump instruction (see {@link edu.cmu.sv.kelinci.instrumentor.Options.InstrumentationMode}).
+     */
+    public static long instrCost = 0;
     
     /**
      * Clears the current measurements.
@@ -27,7 +32,7 @@ public class Mem {
     public static void clear() {
         for (int i = 0; i < BUFFER_SIZE + PARAM_SIZE; i++)
             mem[i] = 0;
-        jumps = 0L;
+        instrCost = 0L;
     }
 
     /**
@@ -68,8 +73,8 @@ public class Mem {
         String name = "runtime ";
         switch (select) {
             case 1: name = "max_heap";  break;
-            case 2: name = "jumps   ";  break;
-            case 3: name = "cost    ";  break;
+            case 2: name = "instr   ";  break;
+            case 3: name = "user    ";  break;
             default:
                 select = 0;
                 break;

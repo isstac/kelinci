@@ -347,7 +347,7 @@ public class Kelinci {
                         }
                         System.out.println("Sending runtime: " + runtime);
                         System.out.println("Sending max heap: " + max_heap);
-                        System.out.println("Sending jumps: " + Mem.jumps);
+                        System.out.println("Sending instr. cost: " + Mem.instrCost);
                         System.out.println("Sending user-defined cost: " + userDefinedCost);
                     }
 
@@ -357,7 +357,7 @@ public class Kelinci {
                     // add the additional parameters to the block to send
                     Mem.appendLong(0, runtime);
                     Mem.appendLong(1, max_heap);
-                    Mem.appendLong(2, Mem.jumps);
+                    Mem.appendLong(2, Mem.instrCost);
                     Mem.appendLong(3, userDefinedCost);
                     Mem.printtest();
 

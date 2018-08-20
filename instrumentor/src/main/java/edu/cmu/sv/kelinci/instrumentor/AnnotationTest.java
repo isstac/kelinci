@@ -22,6 +22,6 @@ public class AnnotationTest {
 	public static void trampoline(int id) {
 		Mem.mem[id^Mem.prev_location]++;
 		Mem.prev_location = id >> 1;
-		Mem.jumps++;
+		Mem.instrCost++;
 	}
 }
