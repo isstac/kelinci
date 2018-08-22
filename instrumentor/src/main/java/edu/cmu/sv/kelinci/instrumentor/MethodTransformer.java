@@ -78,10 +78,10 @@ public class MethodTransformer extends MethodVisitor {
 	
     private void instrumentForCounting() {
         // RK: experimental
-        mv.visitFieldInsn(GETSTATIC, "edu/cmu/sv/kelinci/Mem", "jumps", "J");
+        mv.visitFieldInsn(GETSTATIC, "edu/cmu/sv/kelinci/Mem", "instrCost", "J");
         mv.visitInsn(LCONST_1);
         mv.visitInsn(LADD);
-        mv.visitFieldInsn(PUTSTATIC, "edu/cmu/sv/kelinci/Mem", "jumps", "J");
+        mv.visitFieldInsn(PUTSTATIC, "edu/cmu/sv/kelinci/Mem", "instrCost", "J");
     }
 
 	@Override
