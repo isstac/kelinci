@@ -7967,6 +7967,8 @@ int main(int argc, char** argv) {
         costmodel = COST_MODEL_INSTRUMENTATION;
       else if (optarg && !strcmp(optarg, "userdefined")) // YN: added user-defined cost
         costmodel = COST_MODEL_USER_DEFINED;
+      else if (optarg && !strcmp(optarg, "nocost")) // YN: only coverage, no cost
+        costmodel = COST_MODEL_STANDARD;
       else if (optarg)
         FATAL("Unknown cost model %s", optarg);
       else
