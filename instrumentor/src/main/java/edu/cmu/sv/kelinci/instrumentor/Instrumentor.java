@@ -2,6 +2,8 @@ package edu.cmu.sv.kelinci.instrumentor;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,7 +29,7 @@ public class Instrumentor {
 	public static void main(String[] args) {
 	
 		// get class loader
-		classloader = Thread.currentThread().getContextClassLoader();
+		classloader = new URLClassLoader(new URL[] {}, null);
 		
 		// parse command line arguments
 		Options options = Options.v();
@@ -130,6 +132,9 @@ public class Instrumentor {
 
 	private static void loadAndWriteResource(String resource) {
 		InputStream is = classloader.getResourceAsStream(resource);
+		if (is == null) {
+			is = ClassLoader.getSystemResourceAsStream(resource);
+		}
 		if (is == null) {
 			System.err.println("Error loading Kelinci classes for addition to output");
 			return;
