@@ -14,12 +14,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Arrays;
-import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -31,7 +31,7 @@ import java.util.concurrent.TimeoutException;
 class Kelinci {
 
 	private static final int maxQueue = 10;
-	private static Queue<FuzzRequest> requestQueue = new ConcurrentLinkedQueue<>();
+	private static BlockingQueue<FuzzRequest> requestQueue = new LinkedBlockingQueue<>();
 
 	public static final byte STATUS_SUCCESS = 0;
 	public static final byte STATUS_TIMEOUT = 1;
@@ -184,7 +184,7 @@ class Kelinci {
 		
 		while (true) {
 			try {
-				FuzzRequest request = requestQueue.poll();
+				FuzzRequest request = requestQueue.poll(1000, TimeUnit.MILLISECONDS);
 				if (request != null) {
 					if (verbosity > 1)
 						System.out.println("Handling request 1 of " + (requestQueue.size()+1));
@@ -327,9 +327,6 @@ class Kelinci {
 					if (verbosity > 1) 
 						System.out.println("Connection closed.");
 
-				} else {
-					// if no request, close your eyes for a bit
-					Thread.sleep(100);
 				}
 			} catch (SocketException se) {
 				// Connection was reset, most probably means AFL process was killed.
